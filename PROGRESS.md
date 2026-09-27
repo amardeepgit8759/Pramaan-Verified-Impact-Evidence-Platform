@@ -1,111 +1,65 @@
 # Progress
 
-## Scaffold (before Phase 1) — 2026-09-27
+Checkpoints per phase of the plan (brief, Section 7). Some work landed before the plan
+arrived; it's listed under the phase it belongs to.
+
+## Phase 0 — Scaffold ✅
 
 **Built**
 
-- pnpm monorepo: `apps/api` (Express 5), `apps/web` (React 18 + Vite), `packages/shared`
-  (zod schemas, default org settings, Trust Score calculation).
-- API: zod-validated env that fails fast, pino logging, helmet CSP, rate limiting, JSON errors,
-  Drizzle + pg client, migrations on boot (first one enables pgvector), `GET /api/health`
-  reporting DB connectivity, pgvector and latency. Serves the built web app with an SPA
-  fallback when `WEB_DIST_DIR` is set.
-- Web: Tailwind v4 with shadcn/ui tokens, Button and Card (React 18 `forwardRef` versions),
-  React Router, TanStack Query with centralised query keys, a typed `apiGet` that validates
-  responses with the shared schemas, a home page with live system status, and 404/error pages.
-- Docker Compose (Postgres + pgvector for dev and tests, plus the full app under the `full`
-  profile) and a single production Dockerfile.
+- pnpm monorepo: `apps/api` (Express 5), `apps/web` (React 18 + Vite), `packages/shared`.
+  TypeScript configs, ESLint (flat config) and Prettier at the root.
+- Tailwind v4 + shadcn/ui (React 18 `forwardRef` versions), and a zod env loader that fails
+  fast and lists every missing variable.
+- Docker Compose: Postgres 17 + pgvector for dev (`:55432`) and a throwaway test database
+  (`:55433`). `docker compose up` builds and runs the app at `http://localhost:3000`.
+- Drizzle setup with migrations (the first one enables `pgvector`), which run automatically
+  when the API boots.
+- `GET /api/health` (database, pgvector, latency). The API serves the built web app with an
+  SPA fallback, from one origin.
+- One production Dockerfile. CI workflow (`.github/workflows/ci.yml`) running lint, typecheck,
+  test, build and e2e against a pgvector service container.
 
 **Tested**
 
-- `pnpm lint`, `pnpm typecheck` and `pnpm test` all pass: 10 shared unit tests, 5 API unit
-  tests, 3 API integration tests against real Postgres, and 3 web component tests.
-- `pnpm e2e` (Playwright, production build served by the API): 2 passing.
-- Manual: `docker build` succeeds. The container with no env prints every missing variable and
-  exits 1. With env it migrates, serves `/api/health` (ok, pgvector enabled), the SPA, deep
-  links and JSON 404s, and serves `/assets` as immutable. `pnpm dev` works through the Vite
-  proxy.
+- Gate: `docker compose up --build` → container healthy, `localhost:3000/api/health` returns
+  `ok` with pgvector enabled, and the landing page and deep links return 200. The health
+  integration test passes.
+- `pnpm lint`, `pnpm typecheck` and `pnpm test` pass.
 
 **Known issues**
 
-- Cloudinary and Gemini credentials aren't in `.env` yet, so `pnpm dev` and `pnpm e2e` exit at
-  startup with the missing-variable list until they're added. That's intended.
-- pnpm still prints an "Ignored build scripts" notice for `@google/genai` and `protobufjs`.
-  Both scripts are no-ops or version notices, so nothing breaks; the notice is cosmetic.
+- `docker compose up` needs Cloudinary and Gemini keys in `.env` (the API refuses to start
+  without them). The gate was checked with placeholder values in a throwaway override file.
+- pnpm prints a harmless "Ignored build scripts" notice for `@google/genai` and `protobufjs`.
 
-## Domain model and core logic — 2026-09-27
+## Phase 1 — Auth, orgs, projects, sites, settings (in progress)
 
-**Built**
-
-- Drizzle schema and migration for all 12 tables in Section 4, with the requested indexes:
-  `(org_id)`, `(project_id, captured_at)`, `etag`, and HNSW (cosine) on `embedding vector(768)`.
-- `packages/shared`:
-  - `computeTrustScore`, with all six checks and plain-language reasons
-  - settings schema and defaults matching Section 5.2
-  - EXIF GPS parsing (decimal, DMS, degree-symbol, rational and GPSPosition forms) and EXIF date parsing
-  - haversine distance and nearest-site auto-assignment
-  - pHash conversion and Hamming distance
-  - report eligibility and documentation-gap status
-- API services: the near-duplicate / exact-duplicate candidate search in SQL, and org settings
-  seeding and loading.
-
-**Tested**
-
-- Shared: 136 tests, with coverage enforced at **100%** for lines, branches, functions and
-  statements.
-- API: 18 tests, including 8 against real Postgres for the duplicate search (threshold,
-  same-project exclusion, etag-only matching for videos, org isolation, excluding the asset
-  itself, feeding `computeTrustScore`) and 2 for settings round-trips.
-- `pnpm lint`, `pnpm typecheck`, `pnpm test` all pass.
-
-**Known issues**
-
-- Nothing runs this logic end to end yet. The upload/confirm pipeline, auth and the UI come
-  with the phases.
-
-## Design system, auth, landing and projects — 2026-09-27
-
-**Built**
+**Built so far**
 
 - Auth API:
-  - sign-up (creates the organisation, seeds its settings, makes the user admin), sign-in,
-    sign-out, `me`
-  - admin-only team list and invites, with one-time password-set links
-  - role guards, a stricter auth rate limit, and a JSON-only rule for writes
-- Projects API (list with live site, file and band counts plus average trust; get; create for
-  admins) and `GET /api/public/stats`.
-- Design system:
-  - tokens for both themes, Geist and Instrument Serif, and a no-flash dark mode toggle that
-    follows the system setting
-  - shadcn/ui primitives in React 18 form: Button, Card, Badge, Input, Textarea, Label,
-    Dialog, DropdownMenu, Skeleton
-  - `BandBadge`, `TrustBar`, `SdgChip`, `EmptyState` and accessible form fields
-- Pages:
-  - landing (hero, real stats strip hidden when empty, three steps, the six checks, CTA)
-  - sign-in, sign-up and set-password
-  - the app shell (sidebar on desktop, top bar and bottom tabs on phones, account menu with
-    theme and sign-out)
-  - dashboard and projects, with the create-project dialog and SDG picker
-- Guards: `/app` sends signed-out visitors to sign-in and back again afterwards; sign-in and
-  sign-up skip ahead when you're already signed in.
+  - sign-up (creates the organisation, seeds its settings from `defaults.ts`, makes the user
+    admin), sign-in, sign-out, `me`
+  - invites with one-time password-set links
+  - role guards, a stricter auth rate limit, and JSON-only writes
+- Projects API: list with live counts, get, create.
+- Design system and app shell:
+  - tokens for both themes, fonts, and the dark-mode toggle
+  - shadcn/ui primitives, `BandBadge`, `TrustBar`, `SdgChip`, `EmptyState`
+- Pages: landing, sign-in, sign-up, set-password, dashboard, and projects with the create
+  dialog.
 
-**Tested**
+**Tested so far**
 
-- `pnpm lint`, `pnpm typecheck` and `pnpm test` pass:
-  - shared: 136 tests, 100% coverage
-  - API: 39 tests, including 21 new ones against Postgres for sign-up, sign-in, sign-out,
-    invites, roles, tenancy isolation, project counts and public stats
-  - web: 11 component tests on the real route tree
-- `pnpm e2e` (production build): landing leads to sign-up; an admin signs up, creates a
-  project, signs out, is sent back to the page they wanted after signing in; and the 404 page.
-- Manual: screenshots of the landing page (light desktop, dark 375px), sign-up, the empty
-  dashboard, the create-project dialog, and projects (light, dark, 375px) were reviewed.
-  Layout, contrast and the bottom tabs hold up at 375px.
+- API integration tests for auth, roles, tenancy, project counts and public stats.
+- Web route tests.
+- e2e: sign up, create a project, sign out, sign back in.
 
-**Known issues**
+## Phase 2 groundwork (done ahead of the phase)
 
-- Project cards aren't clickable yet. The project detail page (tabs) is the next piece of UI.
-- The dashboard shows projects only. KPIs, charts, the activity feed and the review queue
-  arrive with `/api/metrics` and SSE.
-- Cloudinary and Gemini keys still aren't in `.env`, so uploads can't be built or tested
-  end to end yet.
+- Drizzle schema for all 12 tables, with the requested indexes (HNSW on
+  `embedding vector(768)`).
+- `computeTrustScore` and the helpers in `packages/shared`: EXIF GPS and date parsing,
+  haversine, pHash/Hamming, eligibility, gap status. 136 unit tests with 100% coverage
+  enforced.
+- Near/exact duplicate search in SQL (`bit_count(phash # $1)`), tested against Postgres.
