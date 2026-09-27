@@ -14,7 +14,7 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "e2e": "pnpm --filter @pramaan/web e2e",
-    "db:up": "docker compose up -d db db-test",
+    "db:up": "docker compose up -d --wait db db-test",
     "db:down": "docker compose down",
     "db:generate": "pnpm --filter @pramaan/api db:generate",
     "db:migrate": "pnpm --filter @pramaan/api db:migrate",

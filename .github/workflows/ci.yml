@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      # Same image as docker-compose's db-test, on the port the tests expect.
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: pramaan
+          POSTGRES_PASSWORD: pramaan
+          POSTGRES_DB: pramaan_test
+        ports:
+          - 55433:5432
+        options: >-
+          --health-cmd "pg_isready -U pramaan -d pramaan_test"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      # Placeholders: nothing in lint/typecheck/test/e2e calls Cloudinary or Gemini.
+      CLOUDINARY_CLOUD_NAME: ci
+      CLOUDINARY_API_KEY: ci
+      CLOUDINARY_API_SECRET: ci
+      GEMINI_API_KEY: ci
+      GEMINI_VISION_MODEL: ci
+      GEMINI_REPORT_MODEL: ci
+      GEMINI_EMBEDDING_MODEL: ci
+      JWT_SECRET: ci-secret-that-is-at-least-32-characters
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm --filter @pramaan/web exec playwright install --with-deps chromium
+      - run: pnpm e2e

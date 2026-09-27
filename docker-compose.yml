@@ -1,6 +1,6 @@
-# Local development:  pnpm db:up          -> Postgres (55432) + test Postgres (55433)
-# Full stack in one container, like production:
-#                     docker compose --profile full up --build
+# Full stack, like production:  docker compose up --build   -> http://localhost:3000
+#   (reads credentials from .env; the database comes from the `db` service below)
+# Databases only, for `pnpm dev`: pnpm db:up                 -> Postgres :55432 (+ test :55433)
 services:
   db:
     image: pgvector/pgvector:pg17
@@ -18,8 +18,36 @@ services:
       timeout: 3s
       retries: 30
 
+  app:
+    build: .
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgres://pramaan:pramaan@db:5432/pramaan
+      NODE_ENV: production
+      PORT: 8080
+    ports:
+      - '${PRAMAAN_APP_PORT:-3000}:8080'
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:8080/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   # Throwaway database for integration tests; data lives in memory only.
+  # Started by `pnpm db:up` (naming a service enables its profile).
   db-test:
+    profiles: [test]
     image: pgvector/pgvector:pg17
     environment:
       POSTGRES_USER: pramaan
@@ -34,20 +62,6 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
-
-  app:
-    profiles: [full]
-    build: .
-    env_file: .env
-    environment:
-      DATABASE_URL: postgres://pramaan:pramaan@db:5432/pramaan
-      PORT: 8080
-      NODE_ENV: production
-    ports:
-      - '8080:8080'
-    depends_on:
-      db:
-        condition: service_healthy
 
 volumes:
   pgdata:

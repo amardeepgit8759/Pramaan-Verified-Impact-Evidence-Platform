@@ -24,14 +24,14 @@ Migrations run automatically when the API starts; `pnpm db:migrate` runs them by
 
 ## Scripts
 
-| Command                                    | What it does                                                       |
-| ------------------------------------------ | ------------------------------------------------------------------ |
-| `pnpm dev`                                 | API (tsx watch) and web (Vite) together                            |
-| `pnpm lint` / `pnpm typecheck`             | ESLint and `tsc` across the workspace                              |
-| `pnpm test`                                | Vitest: unit tests plus API integration tests (needs `pnpm db:up`) |
-| `pnpm build` then `pnpm e2e`               | Playwright against the production build                            |
-| `pnpm db:generate`                         | Generate a Drizzle migration from `apps/api/src/db/schema.ts`      |
-| `docker compose --profile full up --build` | The production image with a local database                         |
+| Command                        | What it does                                                       |
+| ------------------------------ | ------------------------------------------------------------------ |
+| `pnpm dev`                     | API (tsx watch) and web (Vite) together                            |
+| `pnpm lint` / `pnpm typecheck` | ESLint and `tsc` across the workspace                              |
+| `pnpm test`                    | Vitest: unit tests plus API integration tests (needs `pnpm db:up`) |
+| `pnpm build` then `pnpm e2e`   | Playwright against the production build                            |
+| `pnpm db:generate`             | Generate a Drizzle migration from `apps/api/src/db/schema.ts`      |
+| `docker compose up --build`    | The production image + database at http://localhost:3000           |
 
 ## Layout
 
