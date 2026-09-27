@@ -1,6 +1,7 @@
 import { createBrowserRouter, type RouteObject } from 'react-router';
 import { AppLayout } from './routes/app/app-layout';
 import { DashboardPage } from './routes/app/dashboard';
+import { ProjectEvidence } from './routes/app/project/evidence';
 import { ProjectOverview } from './routes/app/project/overview';
 import { ProjectLayout } from './routes/app/project/project-layout';
 import { ProjectSites } from './routes/app/project/sites';
@@ -37,6 +38,7 @@ export const routes: RouteObject[] = [
             element: <ProjectLayout />,
             children: [
               { index: true, element: <ProjectOverview /> },
+              { path: 'evidence', element: <ProjectEvidence /> },
               { path: 'sites', element: <ProjectSites /> },
             ],
           },

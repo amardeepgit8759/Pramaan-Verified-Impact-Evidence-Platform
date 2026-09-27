@@ -36,6 +36,8 @@ export const envSchema = z.object({
   CLOUDINARY_TAGGING_ADDON: z
     .enum(['google_tagging', 'imagga_tagging', 'aws_rek_tagging'])
     .default('google_tagging'),
+  /** Tags the add-on is less sure about than this (0–1) are dropped. */
+  CLOUDINARY_AUTO_TAGGING_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.6),
 
   GEMINI_API_KEY: required('Google AI Studio API key'),
   GEMINI_VISION_MODEL: required('Gemini model id for captioning/tagging'),

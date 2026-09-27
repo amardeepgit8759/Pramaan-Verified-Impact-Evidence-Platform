@@ -3,6 +3,8 @@ import { createDb } from './db/client.js';
 import { runMigrations } from './db/migrate.js';
 import { EnvError, loadEnv } from './env.js';
 import { createLogger } from './logger.js';
+import { GeminiAiClient } from './services/ai.js';
+import { CloudinaryMediaStore } from './services/media.js';
 
 function readEnv() {
   try {
@@ -23,7 +25,10 @@ const { db, pool } = createDb(env.DATABASE_URL);
 await runMigrations(db);
 logger.info('Database migrations are up to date');
 
-const server = createApp({ env, db, logger }).listen(env.PORT, () => {
+const media = new CloudinaryMediaStore(env, logger);
+const ai = new GeminiAiClient(env);
+
+const server = createApp({ env, db, logger, media, ai }).listen(env.PORT, () => {
   logger.info(`Pramaan API listening on http://localhost:${env.PORT}`);
 });
 

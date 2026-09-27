@@ -4,6 +4,8 @@ import { TEST_DATABASE_URL } from './test/test-db-url.js';
 export default defineConfig({
   test: {
     include: ['src/**/*.test.ts', 'test/**/*.test.ts'],
+    // Live tests need real credentials; run them with `pnpm test:live`.
+    exclude: ['test/live/**'],
     globalSetup: ['test/global-setup.ts'],
     // Integration tests share one real database, so run files one at a time.
     fileParallelism: false,

@@ -1,4 +1,6 @@
 import {
+  assetDetailSchema,
+  assetListResponse,
   healthResponseSchema,
   projectListResponse,
   projectSummarySchema,
@@ -20,6 +22,9 @@ export const queryKeys = {
   projects: ['projects'] as const,
   project: (id: string) => ['projects', id] as const,
   sites: (projectId: string) => ['projects', projectId, 'sites'] as const,
+  assets: (projectId: string, filters: Record<string, string> = {}) =>
+    ['projects', projectId, 'assets', filters] as const,
+  asset: (id: string) => ['assets', id] as const,
   settings: ['settings'] as const,
   team: ['team'] as const,
 };
@@ -78,3 +83,19 @@ export const teamQuery = queryOptions({
   queryKey: queryKeys.team,
   queryFn: async ({ signal }) => (await api.get('/users', teamListResponse, { signal })).members,
 });
+
+export const assetsQuery = (projectId: string, filters: Record<string, string> = {}) =>
+  queryOptions({
+    queryKey: queryKeys.assets(projectId, filters),
+    queryFn: async ({ signal }) => {
+      const qs = new URLSearchParams(filters).toString();
+      const path = `/projects/${projectId}/assets${qs ? `?${qs}` : ''}`;
+      return (await api.get(path, assetListResponse, { signal })).assets;
+    },
+  });
+
+export const assetQuery = (id: string) =>
+  queryOptions({
+    queryKey: queryKeys.asset(id),
+    queryFn: ({ signal }) => api.get(`/assets/${id}`, assetDetailSchema, { signal }),
+  });

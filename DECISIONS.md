@@ -210,3 +210,46 @@ Checked against https://ai.google.dev/gemini-api/docs/models on 2026-09-27:
   audience.
 - **"Use my current location"** in the site picker uses the browser's geolocation, so field
   staff can place a site while standing in it.
+
+## Phase 2: ingestion (2026-09-28)
+
+Checked against Cloudinary's Upload, Admin, signature and folder-mode docs, and Gemini's
+structured-output, image and embedding docs, on 2026-09-27/28.
+
+- **Auto-tagging runs at confirm time, not in the signed upload.** The brief puts the
+  auto-tagging params in the upload signature. But if the add-on isn't enabled (or is out
+  of quota), a signed upload that asks for it would probably fail outright, and then there's
+  nothing to fall back from. So the server calls the Admin API's `update` with
+  `categorization`/`auto_tagging` after the upload. If that throws, or finds no tags, Gemini
+  tags the image. After a failure the add-on is skipped for an hour, so every upload doesn't
+  pay for the same error. The provider used is stored, logged and shown.
+- **Folder mode is detected, not assumed.** Cloudinary accounts created since 2023 use
+  dynamic folders, where `folder` is legacy. The server asks the Admin API once
+  (`config?settings=true`). Dynamic accounts get `asset_folder` + `public_id_prefix`, fixed
+  ones get `folder`. Either way the public id starts with `pramaan/{orgId}/{projectId}/`, and
+  confirm refuses anything outside the caller's own project folder.
+- **Signed params:** `folder` (or `asset_folder` + prefix), `context`, `phash`,
+  `media_metadata`, `allowed_formats` (phone and camera photo and video formats) and
+  `timestamp`, sent to `/auto/upload`. `media_metadata` replaces the deprecated
+  `image_metadata` and `exif`.
+- **Upload time is Cloudinary's `created_at`**, never the browser's clock.
+- **Captions come only from Gemini**, as the brief specifies (the add-on returns tags, not
+  captions). Alt text falls back to "Photo tagged …" when there's no caption.
+- **Gemini calls** use `models.generateContent` with `responseMimeType: application/json`
+  and a plain `responseJsonSchema`, validated again with zod. The image goes inline (base64)
+  from a width-limited Cloudinary rendition, or for videos an automatically chosen frame,
+  which keeps requests well under the 20 MB inline limit.
+- **Failures degrade, they don't block.** If tagging fails the asset is stored with no tags
+  (`tagging_provider = none`). If embedding fails the vector is null and search falls back
+  to keywords. If writing back to Cloudinary fails, it's logged and skipped.
+- **Write-back uses context keys prefixed `pramaan_`.** Structured metadata needs fields
+  defined in the Cloudinary account first; context works on every account.
+- **Duplicate re-scoring:** after a new asset is stored, the new asset and every asset it
+  matches are re-scored together. If two copies are confirmed at the same moment, the second
+  to finish still sees the first.
+- **Scoring is synchronous inside the confirm request**, so the uploader can show the score
+  the moment verification finishes.
+- **The browser uploads up to three files at a time.** The site picked when files are
+  dropped goes with them; "match from GPS" leaves it to the server.
+- **The live test generates its image** (jpeg-js + piexifjs) with known EXIF instead of
+  committing a binary, uploads it to `pramaan-test/<uuid>`, and deletes it afterwards.

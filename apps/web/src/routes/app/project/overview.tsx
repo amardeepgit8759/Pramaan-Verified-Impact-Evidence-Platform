@@ -57,12 +57,13 @@ export function ProjectOverview() {
           icon={Images}
           title="No evidence yet"
           action={
-            <Button asChild variant="outline">
-              <Link to="sites">Review the sites</Link>
+            <Button asChild>
+              <Link to="evidence">Go to evidence</Link>
             </Button>
           }
         >
-          Photos and videos uploaded to this project will appear here with their Trust Scores.
+          Photos and videos uploaded to this project appear here with their Trust Scores, checked
+          for copies, location and dates.
         </EmptyState>
       )}
 

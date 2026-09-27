@@ -15,3 +15,6 @@ export * from './sdg.js';
 export * from './csr.js';
 export * from './schemas/settings.js';
 export * from './schemas/sites.js';
+export * from './capture.js';
+export * from './schemas/assets.js';
+export * from './search.js';

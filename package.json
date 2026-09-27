@@ -19,7 +19,8 @@
     "db:generate": "pnpm --filter @pramaan/api db:generate",
     "db:migrate": "pnpm --filter @pramaan/api db:migrate",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:live": "pnpm --filter @pramaan/api test:live"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

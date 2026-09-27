@@ -18,6 +18,7 @@ import { EditProjectDialog } from '../create-project-dialog';
 
 const TABS = [
   { to: '', label: 'Overview', end: true },
+  { to: 'evidence', label: 'Evidence', end: false },
   { to: 'sites', label: 'Sites', end: false },
 ];
 

@@ -91,11 +91,64 @@ arrived; it's listed under the phase it belongs to.
 - Settings changes don't push live updates yet. The events are logged now and SSE delivers
   them in Phase 3.
 
-## Phase 2 groundwork (done ahead of the phase)
+## Phase 2 — Ingestion, Cloudinary, Trust Score (built; live check pending keys)
 
-- Drizzle schema for all 12 tables, with the requested indexes (HNSW on
-  `embedding vector(768)`).
-- `computeTrustScore` and the helpers in `packages/shared`: EXIF GPS and date parsing,
-  haversine, pHash/Hamming, eligibility, gap status. 136 unit tests with 100% coverage
-  enforced.
-- Near/exact duplicate search in SQL (`bit_count(phash # $1)`), tested against Postgres.
+### Built
+
+- `POST /api/uploads/signature` (admin, field). It signs a direct browser upload to
+  Cloudinary's `/auto/upload`. The signed params fix the folder (`pramaan/{orgId}/{projectId}`,
+  or `asset_folder` + `public_id_prefix` on dynamic-folder accounts), the context (org,
+  project, site, uploader), `phash`, `media_metadata`, the allowed formats and the timestamp.
+- `POST /api/assets/confirm`, the Section 5.1 pipeline:
+  - checks the upload is in the caller's org/project folder, then re-fetches it from the
+    Admin API (etag, pHash, size, format, `media_metadata`, created time)
+  - parses EXIF capture time and GPS from flat, prefixed or grouped keys, plus video
+    location tags
+  - auto-assigns the nearest site whose radius contains the GPS
+  - tags with the Cloudinary add-on, falling back to a Gemini caption and 5–15 tags
+    (provider stored, logged and returned)
+  - embeds caption + tags + project + site + date with Gemini
+  - runs the Trust Score, stores the asset and its six checks, logs `asset.created`, then
+    re-scores every duplicate it matches (`asset.rescored`)
+  - writes project, site and score back to the Cloudinary asset as context, best-effort
+- Confirming is idempotent: the same upload returns the same asset.
+- `GET /api/assets/:id` (detail with checks and EXIF sources) and
+  `GET /api/projects/:id/assets` (filters: site, band, tag, capture-date range).
+- Web: an Evidence tab with a drag-and-drop and phone-camera uploader (`capture`),
+  per-file progress through sign → upload → verify, a live score reveal, retry on failure,
+  and an evidence grid with band badges and alt text from captions or tags.
+
+### Tested
+
+- Unit (shared, 100% coverage): the capture-data extractor (flat, prefixed and nested EXIF;
+  QuickTime and ISO 6709 video locations; fallbacks; 0,0 as no fix), embedding text, plus
+  every earlier test (every trust check, clamping, bands, custom weights, haversine,
+  Hamming, EXIF parser in both formats).
+- API integration (16 new tests, Cloudinary and Gemini faked at the service boundary,
+  real Postgres):
+  - signing: folder and context; viewers refused; other orgs refused
+  - the full happy path
+  - Gemini fallback when the add-on errors or finds nothing, and `TAGGING_PROVIDER=gemini`
+  - both AI calls failing
+  - no-EXIF, "unverified" wording
+  - off-site photo (far deduction)
+  - exact copy across projects re-scoring the earlier upload, with events
+  - near-copy at distance 3/64
+  - idempotency
+  - uploads outside the project folder, missing files, viewers, and foreign sites
+  - org isolation and list filters
+- Web: the uploader signs, sends the file with the signed params untouched, confirms and
+  reveals the score; shows failures with retry; is hidden from viewers.
+- `pnpm test:live` exists. It generates a real JPEG with EXIF GPS and date, uploads it with
+  a signature exactly like the browser, checks etag, pHash and parsed EXIF from the Admin
+  API, tries the tagging add-on, fetches a delivery URL, writes context, captions and embeds
+  with Gemini, then deletes the file.
+
+### Known issues
+
+- **Not yet run against real Cloudinary or Gemini:** `.env` has no keys yet. `pnpm test:live`
+  stops at startup with the list of missing keys. Two things only a live run can confirm:
+  the exact key layout of `media_metadata` (the parser accepts every layout I know of, and
+  the live test prints the real keys), and that the configured Gemini models answer.
+- No e2e upload yet. That needs real keys and arrives with Phase 3's two-context
+  Playwright test.

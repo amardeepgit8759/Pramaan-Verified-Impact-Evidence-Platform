@@ -10,6 +10,7 @@ import type { Db } from './db/client.js';
 import type { Env } from './env.js';
 import { errorHandler, HttpError, notFoundHandler } from './http-error.js';
 import type { Logger } from './logger.js';
+import { assetsRouter, projectAssetsRouter, uploadsRouter } from './routes/assets.js';
 import { authRouter } from './routes/auth.js';
 import { healthRouter } from './routes/health.js';
 import { orgRouter } from './routes/org.js';
@@ -18,14 +19,21 @@ import { projectSitesRouter, sitesRouter } from './routes/sites.js';
 import { projectsRouter } from './routes/projects.js';
 import { publicRouter } from './routes/public.js';
 import { usersRouter } from './routes/users.js';
+import type { AiClient } from './services/ai.js';
+import type { MediaStore } from './services/media.js';
 
 export interface AppDeps {
   env: Env;
   db: Db;
   logger: Logger;
+  /** Cloudinary; a fake in tests. */
+  media: MediaStore;
+  /** Gemini; a fake in tests. */
+  ai: AiClient;
 }
 
-export function createApp({ env, db, logger }: AppDeps) {
+export function createApp({ env, db, logger, media, ai }: AppDeps) {
+  const ingest = { db, env, media, ai, logger };
   const app = express();
   app.disable('x-powered-by');
   // Render (and most PaaS) terminate TLS at one proxy hop; needed for correct client IPs.
@@ -93,6 +101,9 @@ export function createApp({ env, db, logger }: AppDeps) {
   api.use('/auth', authRouter(db, env));
   api.use('/users', usersRouter(db));
   api.use('/projects/:projectId/sites', projectSitesRouter(db));
+  api.use('/projects/:projectId/assets', projectAssetsRouter(ingest));
+  api.use('/uploads', uploadsRouter(ingest));
+  api.use('/assets', assetsRouter(ingest));
   api.use('/projects', projectsRouter(db));
   api.use('/sites', sitesRouter(db));
   api.use('/settings', settingsRouter(db));

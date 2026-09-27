@@ -5,13 +5,19 @@ import { createApp } from '../src/app.js';
 import { createDb } from '../src/db/client.js';
 import { loadEnv } from '../src/env.js';
 import { createLogger } from '../src/logger.js';
+import { FakeAiClient, FakeMediaStore } from './fakes.js';
 
-/** Build the real app against the test database. Call `close()` in afterAll. */
-export function createTestApp() {
-  const env = loadEnv();
+/**
+ * Build the real app against the test database, with Cloudinary and Gemini replaced by
+ * fakes at the service boundary. Call `close()` in afterAll.
+ */
+export function createTestApp(overrides: Partial<Record<string, string>> = {}) {
+  const env = loadEnv({ ...process.env, ...overrides });
   const { db, pool } = createDb(env.DATABASE_URL);
-  const app = createApp({ env, db, logger: createLogger(env) });
-  return { app, db, close: () => pool.end() };
+  const media = new FakeMediaStore();
+  const ai = new FakeAiClient();
+  const app = createApp({ env, db, logger: createLogger(env), media, ai });
+  return { app, db, env, media, ai, close: () => pool.end() };
 }
 
 let counter = 0;
