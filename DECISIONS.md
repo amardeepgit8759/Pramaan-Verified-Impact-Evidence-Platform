@@ -119,3 +119,59 @@ Checked against https://ai.google.dev/gemini-api/docs/models on 2026-09-27:
 - **`events.id` is a bigint identity** so SSE clients can resume from `Last-Event-ID`.
 - Deleting an organization cascades to everything. Deleting a site keeps its assets and just
   unassigns them.
+
+## Design system, auth and projects (2026-09-27)
+
+### Auth (Section 5.9)
+
+- **Passwords use Node's built-in `scrypt`** (N=2^15, r=8, p=1, 16-byte salt, stored as
+  `scrypt$N$r$p$salt$key`). It's memory-hard like argon2 but needs no native module, so
+  installs and Docker builds stay simple on Windows and Linux.
+- **The session JWT carries only the user id** (HS256, `SESSION_TTL_DAYS`, default 7). The
+  user, role and org are re-read on every request, so a role change or removal takes effect
+  immediately rather than when the token expires.
+- **Login doesn't reveal which emails exist:** same message for an unknown email and a wrong
+  password, and one hash comparison runs either way so timing matches.
+- **CSRF:** the cookie is `sameSite=lax`, and every API write must be `application/json`
+  (anything else gets 415). A cross-site HTML form can't send JSON without a CORS preflight.
+- **Stricter rate limit on sign-in, sign-up and password-set:** 20 per 15 minutes per IP by
+  default (`AUTH_RATE_LIMIT_*`).
+- **Invites:** a 32-byte random token, stored only as a SHA-256 hash, valid for 7 days, single
+  use. The link is logged on the server (the demo has no email) and also returned to the
+  inviting admin so they can copy it. It's built from the request's own host, so it works
+  behind the Vite proxy and on Render without another env var.
+- **Only admins create projects.** Field staff and viewers can see them.
+- **A malformed id returns 404**, the same as an id that doesn't exist.
+
+### Landing page
+
+- **The public stats strip is platform-wide:** total verified files, projects, sites and
+  ready reports across all organisations, as counts only (no names or media). It's hidden
+  when there's no evidence yet.
+- **No illustrative "example" evidence** on the landing page. Mock data isn't allowed, so the
+  hero is typographic and the explainer describes the checks rather than showing made-up
+  scores.
+
+### UI
+
+- **Fonts:** Geist (UI) and Instrument Serif (display headings) from Google Fonts. The CSP
+  allows `fonts.googleapis.com` and `fonts.gstatic.com` and nothing else external for styles
+  or fonts.
+- **Palette:** ink/indigo neutrals, emerald as the only accent, and emerald/amber/rose for
+  verified/review/flagged, all as OKLCH tokens in `index.css`. Every text/background pair
+  was checked against WCAG AA in both themes (lowest: 4.99:1 for white on emerald buttons).
+  Bands always pair colour with an icon and a label.
+- **Dark mode** is class-based. The preference (light, dark, system) is saved in
+  `localStorage`; it's a per-browser convenience, not user data. A tiny same-origin script
+  (`/theme-init.js`) applies it before first paint to avoid a flash; it's an external file
+  because the CSP forbids inline scripts.
+- **Phones get a bottom tab bar** (thumb-reachable for field staff) and desktops a sidebar.
+- **SDG chips use the official UN colours**, as decoration only: the goal number and name are
+  always there as text.
+- **CSR category** is free text, with suggestions from Schedule VII of India's Companies Act.
+- **UI copy uses British/Indian English spelling** ("organisation"), which suits the product's
+  audience.
+- **Loading states** are skeletons. Only a submit button shows a small inline spinner while
+  its request is in flight. Toasts use `sonner`.
+- **Animations** stay under 200 ms and respect `prefers-reduced-motion`, both through Framer
+  Motion's `MotionConfig` and a CSS fallback.

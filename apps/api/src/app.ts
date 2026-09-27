@@ -5,11 +5,16 @@ import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
+import { authenticate } from './auth/middleware.js';
 import type { Db } from './db/client.js';
 import type { Env } from './env.js';
-import { errorHandler, notFoundHandler } from './http-error.js';
+import { errorHandler, HttpError, notFoundHandler } from './http-error.js';
 import type { Logger } from './logger.js';
+import { authRouter } from './routes/auth.js';
 import { healthRouter } from './routes/health.js';
+import { projectsRouter } from './routes/projects.js';
+import { publicRouter } from './routes/public.js';
+import { usersRouter } from './routes/users.js';
 
 export interface AppDeps {
   env: Env;
@@ -36,6 +41,8 @@ export function createApp({ env, db, logger }: AppDeps) {
           ],
           'media-src': ["'self'", 'blob:', 'https://res.cloudinary.com'],
           'connect-src': ["'self'", 'https://api.cloudinary.com'],
+          'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+          'font-src': ["'self'", 'data:', 'https://fonts.gstatic.com'],
         },
       },
     }),
@@ -66,7 +73,22 @@ export function createApp({ env, db, logger }: AppDeps) {
       legacyHeaders: false,
     }),
   );
+  // Writes must be JSON: HTML forms on other sites can't send that without a CORS preflight,
+  // which adds a second CSRF defence on top of the sameSite=lax session cookie.
+  api.use((req, _res, next) => {
+    const hasBody =
+      Number(req.headers['content-length'] ?? 0) > 0 || !!req.headers['transfer-encoding'];
+    if (req.method !== 'GET' && req.method !== 'HEAD' && hasBody && !req.is('application/json')) {
+      return next(new HttpError(415, 'Send the request body as JSON'));
+    }
+    next();
+  });
+  api.use(authenticate(db, env));
   api.use('/health', healthRouter(db));
+  api.use('/public', publicRouter(db));
+  api.use('/auth', authRouter(db, env));
+  api.use('/users', usersRouter(db));
+  api.use('/projects', projectsRouter(db));
   api.use(notFoundHandler);
   app.use('/api', api);
 

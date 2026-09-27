@@ -1,3 +1,4 @@
+import { Compass } from 'lucide-react';
 import { Link, isRouteErrorResponse, useRouteError } from 'react-router';
 import { Button } from '@/components/ui/button';
 
@@ -5,7 +6,7 @@ export function NotFoundPage() {
   return (
     <Message
       title="Page not found"
-      body="The page you're looking for doesn't exist or has moved."
+      body="The page you’re looking for doesn’t exist or has moved."
     />
   );
 }
@@ -23,12 +24,15 @@ export function RouteErrorPage() {
 
 function Message({ title, body }: { title: string; body: string }) {
   return (
-    <div className="mx-auto flex max-w-md flex-col items-center gap-4 py-24 text-center">
-      <h1 className="text-2xl font-semibold">{title}</h1>
-      <p className="text-muted-foreground">{body}</p>
-      <Button asChild>
-        <Link to="/">Back to home</Link>
-      </Button>
-    </div>
+    <main className="grid min-h-dvh place-items-center px-4">
+      <div className="flex max-w-md flex-col items-center gap-4 text-center">
+        <Compass className="size-10 text-muted-foreground" aria-hidden />
+        <h1 className="font-display text-4xl tracking-tight">{title}</h1>
+        <p className="text-muted-foreground">{body}</p>
+        <Button asChild>
+          <Link to="/">Back to home</Link>
+        </Button>
+      </div>
+    </main>
   );
 }

@@ -27,6 +27,8 @@ export const envSchema = z.object({
     'must be at least 32 characters',
   ),
 
+  SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(7),
+
   CLOUDINARY_CLOUD_NAME: required('Cloudinary Console → Settings → API Keys'),
   CLOUDINARY_API_KEY: required('Cloudinary Console → Settings → API Keys'),
   CLOUDINARY_API_SECRET: required('Cloudinary Console → Settings → API Keys'),
@@ -48,6 +50,9 @@ export const envSchema = z.object({
 
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
+  /** Stricter limit for sign-in, sign-up and password-set, per client IP. */
+  AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
+  AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
 
   /** Directory holding the built web app; served by the API when set. */
   WEB_DIST_DIR: optional,

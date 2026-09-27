@@ -8,3 +8,8 @@ export * from './health.js';
 export * from './phash.js';
 export * from './settings.js';
 export * from './trust.js';
+export * from './schemas/auth.js';
+export * from './schemas/projects.js';
+export * from './schemas/public.js';
+export * from './sdg.js';
+export * from './csr.js';

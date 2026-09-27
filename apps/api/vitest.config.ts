@@ -19,6 +19,7 @@ export default defineConfig({
       GEMINI_VISION_MODEL: 'test-vision-model',
       GEMINI_REPORT_MODEL: 'test-report-model',
       GEMINI_EMBEDDING_MODEL: 'test-embedding-model',
+      AUTH_RATE_LIMIT_MAX: '10000',
     },
   },
 });

@@ -9,36 +9,70 @@ export class ApiError extends Error {
     super(message);
     this.name = 'ApiError';
   }
+
+  /** Field-level messages from a zod validation error, keyed by the top-level field. */
+  get fieldErrors(): Record<string, string> {
+    const details =
+      this.body && typeof this.body === 'object' && 'details' in this.body
+        ? this.body.details
+        : null;
+    if (!Array.isArray(details)) return {};
+    const errors: Record<string, string> = {};
+    for (const issue of details as { path?: unknown[]; message?: string }[]) {
+      const field = issue.path?.[0];
+      if (typeof field === 'string' && issue.message && !errors[field]) {
+        errors[field] = issue.message;
+      }
+    }
+    return errors;
+  }
+}
+
+interface RequestOptions {
+  signal?: AbortSignal;
+  /** Return the parsed body even for non-2xx responses (e.g. a degraded health report). */
+  acceptErrorBody?: boolean;
 }
 
 /**
- * Fetch JSON from the API (same origin, auth via httpOnly cookie) and validate it
- * against the shared zod schema so UI code only ever sees well-formed data.
- * Non-2xx responses whose body still matches the schema (e.g. a degraded health
- * report) are returned when `acceptErrorBody` is set.
+ * Call the API (same origin, auth via httpOnly cookie) and validate the response with a
+ * shared zod schema, so UI code only ever sees well-formed data.
  */
-export async function apiGet<T>(
+async function request<T>(
+  method: string,
   path: string,
-  schema: z.ZodType<T>,
-  { acceptErrorBody = false, signal }: { acceptErrorBody?: boolean; signal?: AbortSignal } = {},
+  schema: z.ZodType<T> | null,
+  body: unknown,
+  { signal, acceptErrorBody = false }: RequestOptions = {},
 ): Promise<T> {
   const res = await fetch(`/api${path}`, {
+    method,
     credentials: 'same-origin',
-    headers: { Accept: 'application/json' },
+    headers: {
+      Accept: 'application/json',
+      ...(body !== undefined && { 'Content-Type': 'application/json' }),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
     signal,
   });
-  const body: unknown = await res.json().catch(() => null);
+  const data: unknown = res.status === 204 ? null : await res.json().catch(() => null);
 
   if (!res.ok && !acceptErrorBody) {
     const message =
-      body && typeof body === 'object' && 'error' in body && typeof body.error === 'string'
-        ? body.error
+      data && typeof data === 'object' && 'error' in data && typeof data.error === 'string'
+        ? data.error
         : `Request failed (${res.status})`;
-    throw new ApiError(res.status, message, body);
+    throw new ApiError(res.status, message, data);
   }
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    throw new ApiError(res.status, `Unexpected response from ${path}`, body);
-  }
+  if (schema === null) return undefined as T;
+  const parsed = schema.safeParse(data);
+  if (!parsed.success) throw new ApiError(res.status, `Unexpected response from ${path}`, data);
   return parsed.data;
 }
+
+export const api = {
+  get: <T>(path: string, schema: z.ZodType<T>, options?: RequestOptions) =>
+    request('GET', path, schema, undefined, options),
+  post: <T>(path: string, body: unknown, schema: z.ZodType<T> | null, options?: RequestOptions) =>
+    request('POST', path, schema, body, options),
+};

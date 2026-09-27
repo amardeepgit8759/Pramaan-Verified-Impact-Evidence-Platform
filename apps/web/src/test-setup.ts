@@ -1,6 +1,28 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
-import { afterEach } from 'vitest';
+import { MotionGlobalConfig } from 'framer-motion';
+import { afterEach, vi } from 'vitest';
+
+// jsdom never runs animation frames to completion; render final states directly.
+MotionGlobalConfig.skipAnimations = true;
 
 // Vitest globals are off, so Testing Library can't register its own cleanup.
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+// jsdom has no matchMedia; the theme provider needs it.
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  }),
+});
