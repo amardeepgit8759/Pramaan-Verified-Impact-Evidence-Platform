@@ -1,0 +1,11 @@
+packages:
+  - apps/*
+  - packages/*
+
+onlyBuiltDependencies:
+  - esbuild
+
+# Their install scripts are no-ops / version notices; nothing needs building.
+ignoredBuiltDependencies:
+  - '@google/genai'
+  - protobufjs

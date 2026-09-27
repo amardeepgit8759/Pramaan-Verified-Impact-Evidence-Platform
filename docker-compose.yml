@@ -1,0 +1,53 @@
+# Local development:  pnpm db:up          -> Postgres (55432) + test Postgres (55433)
+# Full stack in one container, like production:
+#                     docker compose --profile full up --build
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: pramaan
+      POSTGRES_PASSWORD: pramaan
+      POSTGRES_DB: pramaan
+    ports:
+      - '${PRAMAAN_DB_PORT:-55432}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U pramaan -d pramaan']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Throwaway database for integration tests; data lives in memory only.
+  db-test:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: pramaan
+      POSTGRES_PASSWORD: pramaan
+      POSTGRES_DB: pramaan_test
+    ports:
+      - '${PRAMAAN_TEST_DB_PORT:-55433}:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U pramaan -d pramaan_test']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  app:
+    profiles: [full]
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://pramaan:pramaan@db:5432/pramaan
+      PORT: 8080
+      NODE_ENV: production
+    ports:
+      - '8080:8080'
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

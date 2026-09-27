@@ -1,0 +1,36 @@
+{
+  "name": "pramaan",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @pramaan/api --filter @pramaan/web dev",
+    "build": "pnpm --filter @pramaan/web build && pnpm --filter @pramaan/api build",
+    "start": "pnpm --filter @pramaan/api start",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "e2e": "pnpm --filter @pramaan/web e2e",
+    "db:up": "docker compose up -d db db-test",
+    "db:down": "docker compose down",
+    "db:generate": "pnpm --filter @pramaan/api db:generate",
+    "db:migrate": "pnpm --filter @pramaan/api db:migrate",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.20.4",
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.12.0",
+    "prettier": "^3.9.9",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.70.1",
+    "vitest": "^5.0.2"
+  }
+}

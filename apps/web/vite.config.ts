@@ -1,0 +1,27 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vitest/config';
+
+// The API reads PORT from the root .env; read it here too so the proxy follows it.
+const rootEnv = path.resolve(import.meta.dirname, '../../.env');
+if (fs.existsSync(rootEnv)) process.loadEnvFile(rootEnv);
+const apiTarget = `http://localhost:${process.env.PORT ?? 8787}`;
+
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: { '@': path.resolve(import.meta.dirname, 'src') },
+  },
+  server: {
+    port: 5173,
+    // Same-origin in dev too, so auth cookies and SSE behave exactly as in production.
+    proxy: { '/api': { target: apiTarget, changeOrigin: false } },
+  },
+  test: {
+    environment: 'jsdom',
+    include: ['src/**/*.test.{ts,tsx}'],
+    setupFiles: ['src/test-setup.ts'],
+  },
+});
