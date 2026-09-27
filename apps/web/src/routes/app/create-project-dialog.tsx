@@ -1,12 +1,16 @@
 import {
   CSR_CATEGORY_SUGGESTIONS,
+  PROJECT_STATUSES,
   projectInput,
   projectSummarySchema,
+  projectUpdateInput,
   SDG_GOALS,
   SDG_INFO,
+  type ProjectStatus,
+  type ProjectSummary,
 } from '@pramaan/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Pencil, Plus } from 'lucide-react';
 import { useId, useState } from 'react';
 import { toast } from 'sonner';
 import { Field, FormError } from '@/components/field';
@@ -21,10 +25,24 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input, Textarea } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { describeError, validate, type FieldErrors } from '@/lib/forms';
 import { queryKeys } from '@/lib/queries';
 import { cn } from '@/lib/utils';
+
+const STATUS_LABEL: Record<ProjectStatus, string> = {
+  active: 'Active',
+  completed: 'Completed',
+  archived: 'Archived',
+};
 
 export function CreateProjectDialog({ trigger }: { trigger?: React.ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -44,24 +62,52 @@ export function CreateProjectDialog({ trigger }: { trigger?: React.ReactNode }) 
             Evidence is checked against the project’s dates, so set them as they really are.
           </DialogDescription>
         </DialogHeader>
-        {open && <CreateProjectForm onDone={() => setOpen(false)} />}
+        {open && <ProjectForm onDone={() => setOpen(false)} />}
       </DialogContent>
     </Dialog>
   );
 }
 
-function CreateProjectForm({ onDone }: { onDone: () => void }) {
+export function EditProjectDialog({ project }: { project: ProjectSummary }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Pencil /> Edit
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Edit project</DialogTitle>
+          <DialogDescription>
+            Changing the dates re-scores this project’s evidence straight away.
+          </DialogDescription>
+        </DialogHeader>
+        {open && <ProjectForm project={project} onDone={() => setOpen(false)} />}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ProjectForm({ project, onDone }: { project?: ProjectSummary; onDone: () => void }) {
   const queryClient = useQueryClient();
-  const [sdgGoals, setSdgGoals] = useState<number[]>([]);
+  const [sdgGoals, setSdgGoals] = useState<number[]>(project?.sdgGoals ?? []);
+  const [status, setStatus] = useState<ProjectStatus>(project?.status ?? 'active');
   const [errors, setErrors] = useState<FieldErrors>({});
   const [message, setMessage] = useState<string | null>(null);
   const listId = useId();
+  const statusId = useId();
 
-  const create = useMutation({
-    mutationFn: (input: unknown) => api.post('/projects', input, projectSummarySchema),
-    onSuccess: (project) => {
+  const save = useMutation({
+    mutationFn: (input: unknown) =>
+      project
+        ? api.put(`/projects/${project.id}`, input, projectSummarySchema)
+        : api.post('/projects', input, projectSummarySchema),
+    onSuccess: (saved) => {
+      // Editing can re-score evidence, so refresh everything under this project too.
       void queryClient.invalidateQueries({ queryKey: queryKeys.projects });
-      toast.success(`Created “${project.name}”`);
+      toast.success(project ? `Saved “${saved.name}”` : `Created “${saved.name}”`);
       onDone();
     },
     onError: (err) => {
@@ -82,11 +128,12 @@ function CreateProjectForm({ onDone }: { onDone: () => void }) {
       endDate: text('endDate') || null,
       csrCategory: text('csrCategory') || null,
       sdgGoals,
+      ...(project && { status }),
     };
-    const result = validate(projectInput, values);
+    const result = validate(project ? projectUpdateInput : projectInput, values);
     setErrors(result.errors ?? {});
     setMessage(null);
-    if (result.data) create.mutate(result.data);
+    if (result.data) save.mutate(result.data);
   }
 
   const toggleGoal = (goal: number) =>
@@ -98,21 +145,30 @@ function CreateProjectForm({ onDone }: { onDone: () => void }) {
     <form onSubmit={onSubmit} noValidate className="grid gap-5">
       <FormError message={message} />
       <Field label="Project name" error={errors.name}>
-        {(p) => <Input {...p} name="name" placeholder="e.g. Borewell Project – Phase 2" />}
+        {(p) => (
+          <Input
+            {...p}
+            name="name"
+            defaultValue={project?.name}
+            placeholder="e.g. Borewell Project – Phase 2"
+          />
+        )}
       </Field>
       <Field
         label="Description"
         hint="Optional. Shown to funders on share pages."
         error={errors.description}
       >
-        {(p) => <Textarea {...p} name="description" rows={3} />}
+        {(p) => <Textarea {...p} name="description" rows={3} defaultValue={project?.description} />}
       </Field>
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Start date" error={errors.startDate}>
-          {(p) => <Input {...p} name="startDate" type="date" />}
+          {(p) => <Input {...p} name="startDate" type="date" defaultValue={project?.startDate} />}
         </Field>
         <Field label="End date" hint="Leave empty if ongoing." error={errors.endDate}>
-          {(p) => <Input {...p} name="endDate" type="date" />}
+          {(p) => (
+            <Input {...p} name="endDate" type="date" defaultValue={project?.endDate ?? undefined} />
+          )}
         </Field>
       </div>
       <Field
@@ -122,7 +178,13 @@ function CreateProjectForm({ onDone }: { onDone: () => void }) {
       >
         {(p) => (
           <>
-            <Input {...p} name="csrCategory" list={listId} autoComplete="off" />
+            <Input
+              {...p}
+              name="csrCategory"
+              list={listId}
+              autoComplete="off"
+              defaultValue={project?.csrCategory ?? undefined}
+            />
             <datalist id={listId}>
               {CSR_CATEGORY_SUGGESTIONS.map((c) => (
                 <option key={c} value={c} />
@@ -131,6 +193,26 @@ function CreateProjectForm({ onDone }: { onDone: () => void }) {
           </>
         )}
       </Field>
+      {project && (
+        <div className="grid gap-2">
+          <Label htmlFor={statusId}>Status</Label>
+          <Select value={status} onValueChange={(v) => setStatus(v as ProjectStatus)}>
+            <SelectTrigger id={statusId}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PROJECT_STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {STATUS_LABEL[s]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-sm text-muted-foreground">
+            Only active projects raise documentation-gap alerts.
+          </p>
+        </div>
+      )}
 
       <fieldset className="grid gap-3">
         <legend className="mb-3 text-sm font-medium">SDG goals this project contributes to</legend>
@@ -165,9 +247,9 @@ function CreateProjectForm({ onDone }: { onDone: () => void }) {
       </fieldset>
 
       <DialogFooter>
-        <Button type="submit" disabled={create.isPending}>
-          {create.isPending && <Loader2 className="animate-spin" aria-hidden />}
-          Create project
+        <Button type="submit" disabled={save.isPending}>
+          {save.isPending && <Loader2 className="animate-spin" aria-hidden />}
+          {project ? 'Save changes' : 'Create project'}
         </Button>
       </DialogFooter>
     </form>

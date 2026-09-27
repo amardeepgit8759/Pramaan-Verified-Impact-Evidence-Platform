@@ -66,6 +66,8 @@ export const users = pgTable(
     /** SHA-256 of the one-time password-set token sent to invited users. */
     inviteTokenHash: text('invite_token_hash'),
     inviteExpiresAt: timestamp('invite_expires_at', { withTimezone: true }),
+    /** Removed from the team. Kept (not deleted) so the review audit log keeps its reviewer. */
+    deactivatedAt: timestamp('deactivated_at', { withTimezone: true }),
     createdAt: createdAt(),
   },
   (t) => [index('users_org_id_idx').on(t.orgId)],

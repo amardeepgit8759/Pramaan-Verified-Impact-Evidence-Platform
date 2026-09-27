@@ -1,5 +1,6 @@
 import type { ProjectSummary } from '@pramaan/shared';
 import { CalendarDays, Images, MapPin } from 'lucide-react';
+import { Link } from 'react-router';
 import { SdgChip } from '@/components/sdg-chip';
 import { TrustBar } from '@/components/trust-bar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,10 +15,18 @@ const STATUS_STYLE = {
 
 export function ProjectCard({ project }: { project: ProjectSummary }) {
   return (
-    <article className="flex flex-col gap-5 rounded-2xl border bg-card p-6 shadow-soft transition-shadow duration-150 hover:shadow-lift">
+    <article className="relative flex flex-col gap-5 rounded-2xl border bg-card p-6 shadow-soft transition-shadow duration-150 focus-within:shadow-lift hover:shadow-lift">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-1.5">
-          <h3 className="text-lg leading-snug font-semibold tracking-tight">{project.name}</h3>
+          <h3 className="text-lg leading-snug font-semibold tracking-tight">
+            {/* The whole card is clickable through this link's stretched hit area. */}
+            <Link
+              to={`/app/projects/${project.id}`}
+              className="rounded-md outline-none after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-2 focus-visible:after:ring-ring"
+            >
+              {project.name}
+            </Link>
+          </h3>
           <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <CalendarDays className="size-3.5" aria-hidden />
             {formatDateRange(project.startDate, project.endDate)}

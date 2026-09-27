@@ -1,4 +1,4 @@
-import { FolderKanban, LayoutDashboard, LogOut, Monitor, Moon, Sun } from 'lucide-react';
+import { FolderKanban, LayoutDashboard, LogOut, Monitor, Moon, Settings, Sun } from 'lucide-react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { Logo } from '@/components/logo';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 const NAV = [
   { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/app/projects', label: 'Projects', icon: FolderKanban, end: false },
+  { to: '/app/settings', label: 'Settings', icon: Settings, end: false },
 ];
 
 const ROLE_LABEL = { admin: 'Admin', field: 'Field staff', viewer: 'Viewer' } as const;
@@ -60,7 +61,7 @@ export function AppLayout() {
 
       <nav
         aria-label="App"
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-2 border-t bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
       >
         {NAV.map(({ to, label, icon: Icon, end }) => (
           <NavLink

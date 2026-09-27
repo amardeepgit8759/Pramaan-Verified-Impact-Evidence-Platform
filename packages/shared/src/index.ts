@@ -13,3 +13,5 @@ export * from './schemas/projects.js';
 export * from './schemas/public.js';
 export * from './sdg.js';
 export * from './csr.js';
+export * from './schemas/settings.js';
+export * from './schemas/sites.js';

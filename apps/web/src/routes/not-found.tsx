@@ -1,5 +1,6 @@
 import { Compass } from 'lucide-react';
 import { Link, isRouteErrorResponse, useRouteError } from 'react-router';
+import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
 
 export function NotFoundPage() {
@@ -34,5 +35,22 @@ function Message({ title, body }: { title: string; body: string }) {
         </Button>
       </div>
     </main>
+  );
+}
+
+/** 404 inside the signed-in app, keeping the navigation around it. */
+export function AppNotFoundPage() {
+  return (
+    <EmptyState
+      icon={Compass}
+      title="Page not found"
+      action={
+        <Button asChild>
+          <Link to="/app">Back to dashboard</Link>
+        </Button>
+      }
+    >
+      The page you’re looking for doesn’t exist or has moved.
+    </EmptyState>
   );
 }

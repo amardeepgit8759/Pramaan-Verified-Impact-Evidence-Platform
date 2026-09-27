@@ -175,3 +175,38 @@ Checked against https://ai.google.dev/gemini-api/docs/models on 2026-09-27:
   its request is in flight. Toasts use `sonner`.
 - **Animations** stay under 200 ms and respect `prefers-reduced-motion`, both through Framer
   Motion's `MotionConfig` and a CSS fallback.
+
+## Phase 1: CRUD, settings and team (2026-09-27)
+
+- **Changes that affect scores re-score straight away**, synchronously, inside the request:
+  - settings (every asset in the org)
+  - project dates (that project's assets)
+  - project rename or delete (assets in other projects whose duplicate checks cite it)
+  - site move, resize, rename or delete (that site's assets)
+
+  At hackathon scale this takes milliseconds, and it means a stored score is never stale.
+  If organisations grow to tens of thousands of assets, this moves to a background job.
+
+- **The settings preview is a dry run of the same re-scoring code**, not an estimate.
+  `POST /api/settings/preview` runs every check with the proposed settings and reports band
+  transitions without writing anything. The UI debounces it (400 ms) and only sends the
+  settled draft.
+- **Settings are readable by every role.** Showing how scores are worked out is part of the
+  product's transparency; only admins can change them.
+- **Removing a teammate deactivates them** (`users.deactivated_at`) instead of deleting the
+  row. The append-only review log keeps pointing at a real reviewer, and the person can't
+  sign in or use an existing session. Re-inviting the same email restores them.
+- **An organisation always keeps an admin:** demoting the last admin is refused, and admins
+  can't remove themselves.
+- **Project and site edits send the whole object** (`PUT`), matching the edit forms. Nothing
+  here benefits from partial updates.
+- **Deleting a project deletes its sites and evidence** (database cascade). Deleting a site
+  keeps its evidence in the project, unassigned. That evidence's location then can't be
+  checked, and the check says so.
+- **Maps:** Leaflet with OpenStreetMap's standard tiles (`tile.openstreetmap.org`,
+  attribution shown, added to the CSP). Dark mode inverts the tile layer with a CSS filter
+  rather than using a second provider. Map code loads only on pages that show a map. When
+  there's nothing to show yet, maps start on a whole-India view, matching the product's
+  audience.
+- **"Use my current location"** in the site picker uses the browser's geolocation, so field
+  staff can place a site while standing in it.

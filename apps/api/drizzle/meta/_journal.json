@@ -15,6 +15,13 @@
       "when": 1790529772652,
       "tag": "0001_domain_model",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790532341639,
+      "tag": "0002_user_deactivation",
+      "breakpoints": true
     }
   ]
 }

@@ -5,7 +5,7 @@ arrived; it's listed under the phase it belongs to.
 
 ## Phase 0 — Scaffold ✅
 
-**Built**
+### Built
 
 - pnpm monorepo: `apps/api` (Express 5), `apps/web` (React 18 + Vite), `packages/shared`.
   TypeScript configs, ESLint (flat config) and Prettier at the root.
@@ -20,40 +20,76 @@ arrived; it's listed under the phase it belongs to.
 - One production Dockerfile. CI workflow (`.github/workflows/ci.yml`) running lint, typecheck,
   test, build and e2e against a pgvector service container.
 
-**Tested**
+### Tested
 
 - Gate: `docker compose up --build` → container healthy, `localhost:3000/api/health` returns
   `ok` with pgvector enabled, and the landing page and deep links return 200. The health
   integration test passes.
 - `pnpm lint`, `pnpm typecheck` and `pnpm test` pass.
 
-**Known issues**
+### Known issues
 
 - `docker compose up` needs Cloudinary and Gemini keys in `.env` (the API refuses to start
   without them). The gate was checked with placeholder values in a throwaway override file.
 - pnpm prints a harmless "Ignored build scripts" notice for `@google/genai` and `protobufjs`.
 
-## Phase 1 — Auth, orgs, projects, sites, settings (in progress)
+## Phase 1 — Auth, orgs, projects, sites, settings ✅
 
-**Built so far**
+### Built
 
-- Auth API:
-  - sign-up (creates the organisation, seeds its settings from `defaults.ts`, makes the user
-    admin), sign-in, sign-out, `me`
-  - invites with one-time password-set links
+- **Auth:**
+  - sign-up creates the organisation, seeds its settings from `defaults.ts`, and makes the
+    user admin
+  - sign-in, sign-out, `me`; invites with one-time password-set links
   - role guards, a stricter auth rate limit, and JSON-only writes
-- Projects API: list with live counts, get, create.
-- Design system and app shell:
-  - tokens for both themes, fonts, and the dark-mode toggle
-  - shadcn/ui primitives, `BandBadge`, `TrustBar`, `SdgChip`, `EmptyState`
-- Pages: landing, sign-in, sign-up, set-password, dashboard, and projects with the create
-  dialog.
+- **Team:**
+  - list and invite
+  - change roles (the last admin can't be demoted)
+  - remove, which deactivates and keeps the review history; admins can't remove themselves
+  - re-inviting a removed member restores them
+- **Organisation:** rename.
+- **Projects:** full CRUD. Editing dates re-scores the project's evidence. Renaming or
+  deleting a project re-scores evidence in other projects whose duplicate checks point at it.
+- **Sites:** full CRUD. Moving, resizing or renaming a site re-scores its evidence. Deleting
+  a site keeps its evidence, unassigned and re-scored.
+- **Settings:** `GET` for everyone (transparency). `POST /preview` does a dry-run re-score
+  ("N assets would change band"). `PUT` saves, re-scores every asset, and logs
+  `settings.updated` plus `asset.rescored` events for SSE in Phase 3.
+- **Re-scoring service:** runs the real Trust Score engine over stored assets for any scope
+  (org, project, site, asset ids), with a dry-run mode.
+- **UI:**
+  - design system and app shell (sidebar on desktop, bottom tabs at 375px)
+  - project detail page with Overview and Sites tabs, and edit/delete
+  - site CRUD with a Leaflet + OpenStreetMap picker (click to place, "use my location",
+    radius slider), a site map that fits all circles, and dark tiles in dark mode
+  - Settings page: deduction sliders, band cut-offs, thresholds, a live debounced preview of
+    band changes, save and re-score, restore defaults, the organisation name, and team
+    management (invite link with copy, role select, remove)
 
-**Tested so far**
+### Tested
 
-- API integration tests for auth, roles, tenancy, project counts and public stats.
-- Web route tests.
-- e2e: sign up, create a project, sign out, sign back in.
+- API integration (58 tests against Postgres): auth, roles and tenancy for every route;
+  project and site CRUD; settings preview (no writes), save (re-scores, stores checks, logs
+  events) and validation; re-scoring when a site moves or is deleted, and when project dates
+  change; duplicate reasons following a project rename or delete; team role and removal
+  rules; organisation rename.
+- Web component tests (18): project overview figures, 404 project, sites list with viewer
+  permissions, site form validation, settings preview (posts the settled draft and shows
+  "3 of 12 assets would change band"), band cut-off validation that blocks save, and
+  read-only settings for viewers.
+- e2e (production build): the admin creates a project, adds a site and edits the project,
+  then invites a field teammate. The teammate sets a password through the link, sees the
+  project and sites, and gets no admin controls.
+- Manual: screenshots of the overview, sites (light, dark, 375px), site picker and settings.
+  Found and fixed: circles not in brand colours (react-leaflet only applies `className` as
+  a direct prop), and a misaligned slider label.
+
+### Known issues
+
+- The main JS bundle is about 750 kB minified (230 kB gzipped). Leaflet is already split out;
+  routes get code-split during Phase 7's performance pass.
+- Settings changes don't push live updates yet. The events are logged now and SSE delivers
+  them in Phase 3.
 
 ## Phase 2 groundwork (done ahead of the phase)
 

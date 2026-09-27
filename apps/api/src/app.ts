@@ -12,6 +12,9 @@ import { errorHandler, HttpError, notFoundHandler } from './http-error.js';
 import type { Logger } from './logger.js';
 import { authRouter } from './routes/auth.js';
 import { healthRouter } from './routes/health.js';
+import { orgRouter } from './routes/org.js';
+import { settingsRouter } from './routes/settings.js';
+import { projectSitesRouter, sitesRouter } from './routes/sites.js';
 import { projectsRouter } from './routes/projects.js';
 import { publicRouter } from './routes/public.js';
 import { usersRouter } from './routes/users.js';
@@ -37,6 +40,7 @@ export function createApp({ env, db, logger }: AppDeps) {
             'data:',
             'blob:',
             'https://res.cloudinary.com',
+            'https://tile.openstreetmap.org',
             'https://*.tile.openstreetmap.org',
           ],
           'media-src': ["'self'", 'blob:', 'https://res.cloudinary.com'],
@@ -88,7 +92,11 @@ export function createApp({ env, db, logger }: AppDeps) {
   api.use('/public', publicRouter(db));
   api.use('/auth', authRouter(db, env));
   api.use('/users', usersRouter(db));
+  api.use('/projects/:projectId/sites', projectSitesRouter(db));
   api.use('/projects', projectsRouter(db));
+  api.use('/sites', sitesRouter(db));
+  api.use('/settings', settingsRouter(db));
+  api.use('/org', orgRouter(db));
   api.use(notFoundHandler);
   app.use('/api', api);
 

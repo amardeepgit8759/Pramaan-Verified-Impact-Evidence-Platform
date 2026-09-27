@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { loginInput, setPasswordInput, signupInput } from '@pramaan/shared';
-import { and, eq, gt } from 'drizzle-orm';
+import { and, eq, gt, isNull } from 'drizzle-orm';
 import { Router } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { currentUser, requireAuth } from '../auth/middleware.js';
@@ -82,7 +82,7 @@ export function authRouter(db: Db, env: Env) {
     const [user] = await db
       .select({ id: users.id, passwordHash: users.passwordHash })
       .from(users)
-      .where(eq(users.email, input.email));
+      .where(and(eq(users.email, input.email), isNull(users.deactivatedAt)));
     // Always run one hash comparison so response time doesn't reveal which emails exist.
     const ok = await verifyPassword(input.password, user?.passwordHash ?? DUMMY_HASH);
     if (!user?.passwordHash || !ok) {
@@ -112,6 +112,7 @@ export function authRouter(db: Db, env: Env) {
         and(
           eq(users.inviteTokenHash, hashToken(input.token)),
           gt(users.inviteExpiresAt, new Date()),
+          isNull(users.deactivatedAt),
         ),
       )
       .returning({ id: users.id });

@@ -75,4 +75,8 @@ export const api = {
     request('GET', path, schema, undefined, options),
   post: <T>(path: string, body: unknown, schema: z.ZodType<T> | null, options?: RequestOptions) =>
     request('POST', path, schema, body, options),
+  put: <T>(path: string, body: unknown, schema: z.ZodType<T> | null, options?: RequestOptions) =>
+    request('PUT', path, schema, body, options),
+  delete: (path: string, options?: RequestOptions) =>
+    request('DELETE', path, null, undefined, options),
 };

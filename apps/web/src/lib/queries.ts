@@ -4,6 +4,9 @@ import {
   projectSummarySchema,
   publicStatsSchema,
   sessionResponse,
+  settingsResponse,
+  siteListResponse,
+  teamListResponse,
   type SessionResponse,
 } from '@pramaan/shared';
 import { queryOptions } from '@tanstack/react-query';
@@ -16,6 +19,9 @@ export const queryKeys = {
   publicStats: ['public-stats'] as const,
   projects: ['projects'] as const,
   project: (id: string) => ['projects', id] as const,
+  sites: (projectId: string) => ['projects', projectId, 'sites'] as const,
+  settings: ['settings'] as const,
+  team: ['team'] as const,
 };
 
 export const healthQuery = queryOptions({
@@ -55,3 +61,20 @@ export const projectQuery = (id: string) =>
     queryKey: queryKeys.project(id),
     queryFn: ({ signal }) => api.get(`/projects/${id}`, projectSummarySchema, { signal }),
   });
+
+export const sitesQuery = (projectId: string) =>
+  queryOptions({
+    queryKey: queryKeys.sites(projectId),
+    queryFn: async ({ signal }) =>
+      (await api.get(`/projects/${projectId}/sites`, siteListResponse, { signal })).sites,
+  });
+
+export const settingsQuery = queryOptions({
+  queryKey: queryKeys.settings,
+  queryFn: ({ signal }) => api.get('/settings', settingsResponse, { signal }),
+});
+
+export const teamQuery = queryOptions({
+  queryKey: queryKeys.team,
+  queryFn: async ({ signal }) => (await api.get('/users', teamListResponse, { signal })).members,
+});

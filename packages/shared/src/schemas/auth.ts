@@ -67,3 +67,10 @@ export const inviteResponse = z.object({
   inviteUrl: z.string(),
 });
 export type InviteResponse = z.infer<typeof inviteResponse>;
+
+export const roleUpdateInput = z.object({ role: z.enum(USER_ROLES) });
+
+export const orgUpdateInput = z.object({ name: nameSchema });
+export const orgSchema = z.object({ id: z.uuid(), name: z.string() });
+
+export const teamListResponse = z.object({ members: z.array(teamMemberSchema) });

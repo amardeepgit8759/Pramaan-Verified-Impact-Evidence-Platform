@@ -160,3 +160,31 @@
 @utility tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/* Leaflet: brand-coloured shapes, dark tiles in dark mode, and our fonts. */
+.leaflet-container {
+  font-family: var(--font-sans);
+  background: var(--muted);
+}
+.map-site {
+  stroke: var(--primary);
+  fill: var(--primary);
+  fill-opacity: 0.15;
+}
+.map-site-muted {
+  stroke: var(--muted-foreground);
+  fill: var(--muted-foreground);
+  fill-opacity: 0.08;
+  stroke-dasharray: 4 4;
+}
+.map-pin {
+  stroke: var(--card);
+  fill: var(--primary);
+}
+.dark .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9) saturate(0.6);
+}
+.leaflet-tooltip {
+  border-radius: 0.5rem;
+  font-weight: 500;
+}

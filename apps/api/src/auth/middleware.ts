@@ -32,14 +32,15 @@ export function authenticate(db: Db, env: Env): RequestHandler {
         orgId: users.orgId,
         orgName: organizations.name,
         passwordHash: users.passwordHash,
+        deactivatedAt: users.deactivatedAt,
       })
       .from(users)
       .innerJoin(organizations, eq(organizations.id, users.orgId))
       .where(eq(users.id, userId));
 
     // A user removed (or reset to invited) since the cookie was issued is signed out.
-    if (row?.passwordHash) {
-      const { passwordHash: _hash, ...user } = row;
+    if (row?.passwordHash && !row.deactivatedAt) {
+      const { passwordHash: _hash, deactivatedAt: _removed, ...user } = row;
       req.user = user;
     }
     next();
