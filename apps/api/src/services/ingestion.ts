@@ -221,7 +221,11 @@ export async function confirmUpload(
     await recordEvent(tx, user.orgId, 'asset.created', {
       assetId: row!.id,
       projectId: project.id,
+      projectName: project.name,
       siteId: site?.id ?? null,
+      siteName: site?.name ?? null,
+      actorId: user.id,
+      actorName: user.name,
       score: score.score,
       band: score.band,
       taggingProvider: provider,
@@ -240,9 +244,13 @@ export async function confirmUpload(
     phashThreshold: settings.phashThreshold,
   });
   if (related.length > 0) {
-    await rescoreAssets(db, user.orgId, settings, {
-      assetIds: [assetId, ...related.map((r) => r.id)],
-    });
+    await rescoreAssets(
+      db,
+      user.orgId,
+      settings,
+      { assetIds: [assetId, ...related.map((r) => r.id)] },
+      { actor: user },
+    );
   }
 
   try {

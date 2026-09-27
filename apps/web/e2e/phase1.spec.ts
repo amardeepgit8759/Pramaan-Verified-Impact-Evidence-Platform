@@ -57,7 +57,7 @@ test('admin sets up a project with a site and a field teammate', async ({ page, 
   await ravi.getByLabel('Confirm password').fill('ravi password');
   await ravi.getByRole('button', { name: /Set password/ }).click();
   await expect(ravi).toHaveURL('/app');
-  await ravi.getByRole('link', { name: 'Borewell Project – Phase 1 (2024)' }).click();
+  await ravi.getByRole('link', { name: 'Borewell Project – Phase 1 (2024)', exact: true }).click();
   await expect(ravi.getByRole('button', { name: 'Edit', exact: true })).toHaveCount(0);
   await ravi.getByRole('link', { name: 'Sites', exact: true }).click();
   await expect(ravi.getByRole('heading', { name: 'Village Rampur' })).toBeVisible();

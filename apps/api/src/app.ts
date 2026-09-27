@@ -19,7 +19,9 @@ import { projectSitesRouter, sitesRouter } from './routes/sites.js';
 import { projectsRouter } from './routes/projects.js';
 import { publicRouter } from './routes/public.js';
 import { usersRouter } from './routes/users.js';
+import { liveRouter } from './routes/live.js';
 import type { AiClient } from './services/ai.js';
+import type { LiveHub } from './services/live.js';
 import type { MediaStore } from './services/media.js';
 
 export interface AppDeps {
@@ -30,9 +32,11 @@ export interface AppDeps {
   media: MediaStore;
   /** Gemini; a fake in tests. */
   ai: AiClient;
+  /** Server-Sent Events fan-out. */
+  live: LiveHub;
 }
 
-export function createApp({ env, db, logger, media, ai }: AppDeps) {
+export function createApp({ env, db, logger, media, ai, live }: AppDeps) {
   const ingest = { db, env, media, ai, logger };
   const app = express();
   app.disable('x-powered-by');
@@ -95,6 +99,11 @@ export function createApp({ env, db, logger, media, ai }: AppDeps) {
     }
     next();
   });
+  // Once a write has finished (its transaction committed), stream any new events.
+  api.use((req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') res.on('finish', () => live.poke());
+    next();
+  });
   api.use(authenticate(db, env));
   api.use('/health', healthRouter(db));
   api.use('/public', publicRouter(db));
@@ -108,6 +117,7 @@ export function createApp({ env, db, logger, media, ai }: AppDeps) {
   api.use('/sites', sitesRouter(db));
   api.use('/settings', settingsRouter(db));
   api.use('/org', orgRouter(db));
+  api.use(liveRouter(db, live, media));
   api.use(notFoundHandler);
   app.use('/api', api);
 

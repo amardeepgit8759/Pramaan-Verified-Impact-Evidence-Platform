@@ -152,3 +152,67 @@ arrived; it's listed under the phase it belongs to.
   the live test prints the real keys), and that the configured Gemini models answer.
 - No e2e upload yet. That needs real keys and arrives with Phase 3's two-context
   Playwright test.
+
+## Phase 3 — Real-time, metrics, dashboard ✅
+
+### Built
+
+- **`GET /api/stream` (SSE):** authenticated, heartbeat every 20 s, `retry: 3000`, and
+  replay from `Last-Event-ID` (the browser sends it on reconnect) with replayed and live
+  events merged in order and never duplicated. The `events` table is the source of truth.
+  The hub reads new rows when a write request finishes (so only committed data is sent) and
+  every 5 s as a safety net, then fans them out per organisation.
+- **Event payloads** carry the project and site names and the acting user, so the feed and
+  toasts need no extra lookups and nobody is toasted about their own action. All six event
+  types are defined; `report.created` and `site.gap_changed` are emitted by later phases.
+- **`GET /api/metrics?projectId`**, all live SQL:
+  - total, % verified, count per band, average trust, flagged in the last 7 days, needs review
+  - uploads per day and bands per day for 30 zero-filled UTC days
+  - assets per site
+  - sites with documentation gaps (active projects, report-eligible evidence, the org's
+    `gapDays`)
+  - ready reports
+- **`GET /api/events`** (the feed, with paging and a project filter) and
+  **`GET /api/review-queue`** (review or flagged with no decision, oldest first).
+- **Web:**
+  - `useLiveEvents` maps each event type to the query keys it invalidates, toasts other
+    people's notable events, and drives a "Live" indicator in the shell
+  - dashboard: KPI tiles that count up and glow briefly on change; uploads-per-day area
+    chart; trust-band donut; activity feed; needs-review preview; documentation gaps.
+    Charts keep the previous render, faded, while refetching
+  - both charts follow the dataviz rules: one sans for figures, a 2px line with a 10% wash,
+    hairline solid grid, crosshair tooltip with the value first, a 2px surface gap between
+    donut segments, a legend with icon + label + count, and a "Show as table" twin
+- **Band colours re-derived** so they stay distinguishable under colour-vision deficiency
+  (see DECISIONS).
+- **An e2e test server** (`apps/api/test/e2e/server.ts`, test-only) runs the real app with a
+  fake Cloudinary that accepts real multipart uploads and derives etag, pHash and EXIF from
+  the file itself. Browser tests now run without credentials, locally and in CI.
+
+### Tested
+
+- API (9 new tests, real Postgres, a real HTTP server for streaming):
+  - the stream needs sign-in
+  - confirming an upload pushes `asset.created` with names and actor, and `/api/metrics`
+    changes
+  - replay after `Last-Event-ID` returns exactly the later events, in order
+  - heartbeats arrive
+  - organisations never see each other's events
+  - the metrics maths (bands, %, average, 7-day flags, 30-day zero-filled series, per-site,
+    reports, project scope, other orgs refused), gaps, feed paging and filter, queue order
+- Shared: `describeEvent` for every event type (100% coverage kept).
+- Web: the dashboard renders KPIs, charts, gaps and queue from the API; a pushed live event
+  refetches and the KPI changes; toasts for other people's flags but not your own.
+- **e2e (Phase 3 gate):** the dashboard stays open in one browser context while another
+  signs in and uploads a real JPEG through the Evidence tab. The first context's "Total
+  evidence" goes 0 → 1 and the feed updates, with no reload (asserted: a single navigation).
+- Manual: dashboard screenshots with pipeline-generated data (in-range, off-site,
+  cross-project copy, out-of-date photos) in light, dark and 375 px. Fixed the chart
+  interpolation, a legend wrap, and feed length.
+
+### Known issues
+
+- The e2e and screenshot uploads go through the fake Cloudinary; real-Cloudinary behaviour
+  still waits on keys (`pnpm test:live`).
+- `site.gap_changed` events (a site entering or leaving a gap) arrive with Phase 5. Gaps
+  are already computed live on every metrics read.

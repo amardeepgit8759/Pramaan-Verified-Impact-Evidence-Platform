@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLogout, useSession } from '@/lib/auth';
+import { useLiveEvents, type LiveStatus } from '@/lib/live';
 import { useTheme, type ThemePreference } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
@@ -29,6 +30,7 @@ const ROLE_LABEL = { admin: 'Admin', field: 'Field staff', viewer: 'Viewer' } as
 export function AppLayout() {
   const { data: session, isPending } = useSession();
   const location = useLocation();
+  const live = useLiveEvents(session?.user.id);
 
   if (isPending) return <ShellSkeleton />;
   if (!session) {
@@ -45,14 +47,18 @@ export function AppLayout() {
             <SideLink key={item.to} {...item} />
           ))}
         </nav>
-        <div className="mt-auto">
+        <div className="mt-auto space-y-3">
+          <LiveIndicator status={live} />
           <UserMenu />
         </div>
       </aside>
 
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-md lg:hidden">
         <Logo to="/app" />
-        <UserMenu compact />
+        <div className="flex items-center gap-2">
+          <LiveIndicator status={live} compact />
+          <UserMenu compact />
+        </div>
       </header>
 
       <main className="mx-auto w-full max-w-7xl px-4 pt-6 pb-28 sm:px-6 lg:px-10 lg:pt-10 lg:pb-12">
@@ -190,6 +196,35 @@ function UserMenu({ compact = false }: { compact?: boolean }) {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/** Whether live updates are flowing; figures refresh by themselves while it says Live. */
+function LiveIndicator({ status, compact = false }: { status: LiveStatus; compact?: boolean }) {
+  const label =
+    status === 'live' ? 'Live' : status === 'connecting' ? 'Connecting…' : 'Reconnecting…';
+  return (
+    <p
+      className={cn('flex items-center gap-2 text-xs text-muted-foreground', !compact && 'px-2')}
+      title={
+        status === 'live'
+          ? 'Figures update as evidence arrives'
+          : 'Trying to reconnect for live updates'
+      }
+    >
+      <span className="relative flex size-2">
+        {status === 'live' && (
+          <span className="absolute inline-flex size-full animate-ping rounded-full bg-verified-solid opacity-60 motion-reduce:hidden" />
+        )}
+        <span
+          className={cn(
+            'relative inline-flex size-2 rounded-full',
+            status === 'live' ? 'bg-verified-solid' : 'bg-review-solid',
+          )}
+        />
+      </span>
+      <span className={cn(compact && 'sr-only')}>{label}</span>
+    </p>
   );
 }
 

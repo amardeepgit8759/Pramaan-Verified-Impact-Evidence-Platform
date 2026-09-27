@@ -24,6 +24,7 @@ export interface RescoreScope {
 interface ScoredAsset {
   id: string;
   projectId: string;
+  projectName: string;
   previousScore: number;
   previousBand: TrustBand;
   result: TrustScoreResult;
@@ -86,6 +87,7 @@ async function scoreAssets(
     scored.push({
       id: asset.id,
       projectId: asset.projectId,
+      projectName: project.name,
       previousScore: asset.trustScore,
       previousBand: asset.trustBand,
       result,
@@ -129,7 +131,7 @@ export async function rescoreAssets(
   orgId: string,
   settings: OrgSettings,
   scope: RescoreScope = {},
-  { dryRun = false }: { dryRun?: boolean } = {},
+  { dryRun = false, actor }: { dryRun?: boolean; actor?: { id: string; name: string } } = {},
 ): Promise<RescoreSummary> {
   const scored = await scoreAssets(db, orgId, settings, scope);
   if (!dryRun && scored.length > 0) {
@@ -161,6 +163,8 @@ export async function rescoreAssets(
             payload: {
               assetId: s.id,
               projectId: s.projectId,
+              projectName: s.projectName,
+              ...(actor && { actorId: actor.id, actorName: actor.name }),
               score: s.result.score,
               band: s.result.band,
               previousScore: s.previousScore,

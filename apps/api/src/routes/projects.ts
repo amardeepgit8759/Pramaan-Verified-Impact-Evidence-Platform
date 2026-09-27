@@ -80,30 +80,42 @@ export function projectsRouter(db: Db) {
    * reasons quote its name, so affected assets are re-scored straight away.
    */
   router.put('/:id', requireRole('admin'), async (req, res) => {
-    const { orgId } = currentUser(req);
+    const actor = currentUser(req);
+    const { orgId } = actor;
     const before = await requireProject(db, orgId, req.params.id);
     const input = projectUpdateInput.parse(req.body);
     await db.update(projects).set(input).where(eq(projects.id, before.id));
 
     const settings = await getOrgSettings(db, orgId);
     if (input.startDate !== before.startDate || input.endDate !== before.endDate) {
-      await rescoreAssets(db, orgId, settings, { projectId: before.id });
+      await rescoreAssets(db, orgId, settings, { projectId: before.id }, { actor });
     }
     if (input.name !== before.name) {
-      await rescoreAssets(db, orgId, settings, {
-        assetIds: await assetsMatchingProject(db, before.id),
-      });
+      await rescoreAssets(
+        db,
+        orgId,
+        settings,
+        { assetIds: await assetsMatchingProject(db, before.id) },
+        { actor },
+      );
     }
     res.json(await summary(orgId, before.id));
   });
 
   /** Delete a project with its sites and evidence; assets it duplicated are re-scored. */
   router.delete('/:id', requireRole('admin'), async (req, res) => {
-    const { orgId } = currentUser(req);
+    const actor = currentUser(req);
+    const { orgId } = actor;
     const project = await requireProject(db, orgId, req.params.id);
     const affected = await assetsMatchingProject(db, project.id);
     await db.delete(projects).where(eq(projects.id, project.id));
-    await rescoreAssets(db, orgId, await getOrgSettings(db, orgId), { assetIds: affected });
+    await rescoreAssets(
+      db,
+      orgId,
+      await getOrgSettings(db, orgId),
+      { assetIds: affected },
+      { actor },
+    );
     res.status(204).end();
   });
 

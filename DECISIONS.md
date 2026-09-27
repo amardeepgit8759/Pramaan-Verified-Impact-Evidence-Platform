@@ -253,3 +253,34 @@ structured-output, image and embedding docs, on 2026-09-27/28.
   dropped goes with them; "match from GPS" leaves it to the server.
 - **The live test generates its image** (jpeg-js + piexifjs) with known EXIF instead of
   committing a binary, uploads it to `pramaan-test/<uuid>`, and deletes it afterwards.
+
+## Phase 3: real-time and dashboard (2026-09-28)
+
+- **SSE reads committed rows from the `events` table.** Postgres LISTEN/NOTIFY would be
+  neater, but it doesn't work through Neon's pooled (PgBouncer, transaction-mode)
+  connections, and publishing from inside a transaction could announce data that then rolls
+  back. Instead, each write request nudges the hub when it finishes, by which point its
+  transaction has committed, and a 5 s timer covers anything else. It works with any number
+  of API instances, and reconnect replay is simply "rows after Last-Event-ID".
+- **Heartbeats are SSE comments every 20 s**, with `X-Accel-Buffering: no` and
+  `Cache-Control: no-transform` so proxies (Render) don't buffer or close the stream.
+- **Event payloads carry names** (project, site, actor), captured at write time. The feed
+  reads as it was when the thing happened, and clients skip toasts for their own actions.
+- **Live invalidation is by prefix:** `['projects']` covers every project summary, site
+  list and evidence list, so a re-score in one project refreshes duplicates in others. Only
+  visible queries refetch.
+- **Dashboard figures use the UI sans, not the serif**, with proportional digits. The serif
+  stays for headings (dataviz rule: hero and stat values are never a display face).
+- **Band colours for charts** were validated with the dataviz palette checker. The original
+  emerald and rose had the same lightness and were nearly identical under deuteranopia
+  (ΔE 4). The "solid" band colours are now separated by lightness: light mode #00704b /
+  #efa831 / #f46a86, all-pairs CVD ΔE 12.0; dark mode #009164 / #f9b73f / #ff8fa3, ΔE 11.3.
+  The checker's categorical lightness-band rule doesn't apply to a status palette (amber has
+  to be light to read as amber). Amber and rose are under 3:1 on white, so every band
+  display has an icon, a text label, a count and a table view.
+- **A separate indigo series colour** (`--chart-series`) for non-status data such as
+  uploads per day, so emerald always means "verified" and never "just a series".
+- **The e2e server uses a fake Cloudinary** on the app's own origin (test code only;
+  excluded from the Docker image through the API package's `files`). It keeps browser
+  tests hermetic and runnable in CI without secrets. Pointing `BASE_URL` at a deployment
+  runs the same suite against real services.

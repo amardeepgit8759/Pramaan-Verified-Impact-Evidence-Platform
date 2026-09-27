@@ -44,6 +44,7 @@ export type TrustCheck = z.infer<typeof trustCheckSchema>;
 export const assetSchema = z.object({
   id: z.uuid(),
   projectId: z.uuid(),
+  projectName: z.string(),
   siteId: z.uuid().nullable(),
   siteName: z.string().nullable(),
   uploadedBy: z.string().nullable(),

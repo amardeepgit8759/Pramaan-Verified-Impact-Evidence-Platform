@@ -4,6 +4,7 @@ import { runMigrations } from './db/migrate.js';
 import { EnvError, loadEnv } from './env.js';
 import { createLogger } from './logger.js';
 import { GeminiAiClient } from './services/ai.js';
+import { LiveHub } from './services/live.js';
 import { CloudinaryMediaStore } from './services/media.js';
 
 function readEnv() {
@@ -27,8 +28,10 @@ logger.info('Database migrations are up to date');
 
 const media = new CloudinaryMediaStore(env, logger);
 const ai = new GeminiAiClient(env);
+const live = new LiveHub(db, logger);
+await live.init();
 
-const server = createApp({ env, db, logger, media, ai }).listen(env.PORT, () => {
+const server = createApp({ env, db, logger, media, ai, live }).listen(env.PORT, () => {
   logger.info(`Pramaan API listening on http://localhost:${env.PORT}`);
 });
 
@@ -38,6 +41,7 @@ function shutdown(signal: string) {
     void pool.end().finally(() => process.exit(0));
   });
   server.closeIdleConnections();
+  live.close();
   // Long-lived connections (SSE) would otherwise keep the process alive.
   setTimeout(() => process.exit(0), 10_000).unref();
 }

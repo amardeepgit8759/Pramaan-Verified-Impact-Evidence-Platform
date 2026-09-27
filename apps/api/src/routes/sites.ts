@@ -71,17 +71,19 @@ export function sitesRouter(db: Db) {
   router.use(requireAuth);
 
   router.put('/:id', requireRole('admin'), async (req, res) => {
-    const { orgId } = currentUser(req);
+    const actor = currentUser(req);
+    const { orgId } = actor;
     const site = await requireSite(db, orgId, req.params.id);
     const input = siteInput.parse(req.body);
     await db.update(sites).set(input).where(eq(sites.id, site.id));
     // Location, radius and name all feed the wrong-location check and its reason.
-    await rescoreAssets(db, orgId, await getOrgSettings(db, orgId), { siteId: site.id });
+    await rescoreAssets(db, orgId, await getOrgSettings(db, orgId), { siteId: site.id }, { actor });
     res.json(await loadSite(db, site.id));
   });
 
   router.delete('/:id', requireRole('admin'), async (req, res) => {
-    const { orgId } = currentUser(req);
+    const actor = currentUser(req);
+    const { orgId } = actor;
     const site = await requireSite(db, orgId, req.params.id);
     const orphaned = await db
       .select({ id: assets.id })
@@ -89,9 +91,13 @@ export function sitesRouter(db: Db) {
       .where(eq(assets.siteId, site.id));
     await db.delete(sites).where(eq(sites.id, site.id));
     // Evidence stays with the project, unassigned; its location can no longer be checked.
-    await rescoreAssets(db, orgId, await getOrgSettings(db, orgId), {
-      assetIds: orphaned.map((a) => a.id),
-    });
+    await rescoreAssets(
+      db,
+      orgId,
+      await getOrgSettings(db, orgId),
+      { assetIds: orphaned.map((a) => a.id) },
+      { actor },
+    );
     res.status(204).end();
   });
 

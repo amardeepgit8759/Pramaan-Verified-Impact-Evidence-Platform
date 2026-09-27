@@ -34,15 +34,17 @@ export function settingsRouter(db: Db) {
 
   /** Save, then re-score every asset in the organization with the new settings. */
   router.put('/', requireRole('admin'), async (req, res) => {
-    const { orgId, id: userId } = currentUser(req);
+    const user = currentUser(req);
+    const { orgId } = user;
     const next = orgSettingsSchema.parse(req.body);
     await db
       .update(settings)
       .set({ ...next, updatedAt: new Date() })
       .where(eq(settings.orgId, orgId));
-    const rescored = await rescoreAssets(db, orgId, next);
+    const rescored = await rescoreAssets(db, orgId, next, {}, { actor: user });
     await recordEvent(db, orgId, 'settings.updated', {
-      updatedBy: userId,
+      actorId: user.id,
+      actorName: user.name,
       bandChanged: rescored.bandChanged,
       scoreChanged: rescored.scoreChanged,
     });

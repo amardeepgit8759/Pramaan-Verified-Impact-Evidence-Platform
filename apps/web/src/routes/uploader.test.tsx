@@ -22,6 +22,7 @@ const project: ProjectSummary = {
 const asset: AssetDetail = {
   id: '55555555-5555-4555-8555-555555555555',
   projectId: project.id,
+  projectName: project.name,
   siteId: '44444444-4444-4444-8444-444444444444',
   siteName: 'Village Rampur',
   uploadedBy: 'Asha Rao',

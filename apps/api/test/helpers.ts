@@ -5,6 +5,7 @@ import { createApp } from '../src/app.js';
 import { createDb } from '../src/db/client.js';
 import { loadEnv } from '../src/env.js';
 import { createLogger } from '../src/logger.js';
+import { LiveHub } from '../src/services/live.js';
 import { FakeAiClient, FakeMediaStore } from './fakes.js';
 
 /**
@@ -16,8 +17,21 @@ export function createTestApp(overrides: Partial<Record<string, string>> = {}) {
   const { db, pool } = createDb(env.DATABASE_URL);
   const media = new FakeMediaStore();
   const ai = new FakeAiClient();
-  const app = createApp({ env, db, logger: createLogger(env), media, ai });
-  return { app, db, env, media, ai, close: () => pool.end() };
+  const logger = createLogger(env);
+  const live = new LiveHub(db, logger, { heartbeatMs: 200, pollMs: 100 });
+  const app = createApp({ env, db, logger, media, ai, live });
+  return {
+    app,
+    db,
+    env,
+    media,
+    ai,
+    live,
+    close: async () => {
+      live.close();
+      await pool.end();
+    },
+  };
 }
 
 let counter = 0;

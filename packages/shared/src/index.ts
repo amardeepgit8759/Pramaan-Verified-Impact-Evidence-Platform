@@ -18,3 +18,5 @@ export * from './schemas/sites.js';
 export * from './capture.js';
 export * from './schemas/assets.js';
 export * from './search.js';
+export * from './activity.js';
+export * from './schemas/live.js';

@@ -2,7 +2,7 @@ import { CHECK_TYPES, TRUST_BANDS, type Asset, type AssetDetail } from '@pramaan
 import { and, arrayContains, asc, desc, eq, gte, lt, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Db } from '../db/client.js';
-import { assets, sites, trustChecks, users } from '../db/schema.js';
+import { assets, projects, sites, trustChecks, users } from '../db/schema.js';
 import { HttpError } from '../http-error.js';
 import type { MediaStore } from './media.js';
 
@@ -20,18 +20,25 @@ export type AssetFilters = z.infer<typeof assetFilters>;
 
 function baseQuery(db: Db) {
   return db
-    .select({ asset: assets, siteName: sites.name, uploaderName: users.name })
+    .select({
+      asset: assets,
+      projectName: projects.name,
+      siteName: sites.name,
+      uploaderName: users.name,
+    })
     .from(assets)
+    .innerJoin(projects, eq(projects.id, assets.projectId))
     .leftJoin(sites, eq(sites.id, assets.siteId))
     .leftJoin(users, eq(users.id, assets.uploadedBy));
 }
 
 type Row = Awaited<ReturnType<typeof baseQuery>>[number];
 
-function toAsset({ asset: a, siteName, uploaderName }: Row, media: MediaStore): Asset {
+function toAsset({ asset: a, projectName, siteName, uploaderName }: Row, media: MediaStore): Asset {
   return {
     id: a.id,
     projectId: a.projectId,
+    projectName,
     siteId: a.siteId,
     siteName: siteName ?? null,
     uploadedBy: uploaderName ?? null,
@@ -73,9 +80,20 @@ export async function listProjectAssets(
     end.setUTCDate(end.getUTCDate() + 1);
     where.push(lt(assets.capturedAt, end));
   }
-  const rows = await baseQuery(db)
-    .where(and(...where))
-    .orderBy(desc(assets.uploadedAt));
+  return listAssetRows(db, media, and(...where), { order: 'newest' });
+}
+
+/** Assets matching `where`, newest or oldest upload first. */
+export async function listAssetRows(
+  db: Db,
+  media: MediaStore,
+  where: SQL | undefined,
+  { order, limit }: { order: 'newest' | 'oldest'; limit?: number },
+): Promise<Asset[]> {
+  const query = baseQuery(db)
+    .where(where)
+    .orderBy(order === 'newest' ? desc(assets.uploadedAt) : asc(assets.uploadedAt));
+  const rows = limit ? await query.limit(limit) : await query;
   return rows.map((r) => toAsset(r, media));
 }
 

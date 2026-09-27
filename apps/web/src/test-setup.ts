@@ -36,3 +36,30 @@ globalThis.ResizeObserver ??= class {
 Element.prototype.hasPointerCapture ??= () => false;
 Element.prototype.releasePointerCapture ??= () => {};
 Element.prototype.scrollIntoView ??= () => {};
+
+/** A controllable EventSource: tests push live events with `FakeEventSource.emit`. */
+export class FakeEventSource {
+  static instances: FakeEventSource[] = [];
+  onopen: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  private listeners = new Map<string, ((e: MessageEvent<string>) => void)[]>();
+  closed = false;
+  constructor(public url: string) {
+    FakeEventSource.instances.push(this);
+    queueMicrotask(() => this.onopen?.());
+  }
+  addEventListener(type: string, fn: (e: MessageEvent<string>) => void) {
+    this.listeners.set(type, [...(this.listeners.get(type) ?? []), fn]);
+  }
+  close() {
+    this.closed = true;
+  }
+  static emit(type: string, data: unknown) {
+    for (const source of FakeEventSource.instances.filter((s) => !s.closed)) {
+      for (const fn of source.listeners.get(type) ?? []) {
+        fn(new MessageEvent(type, { data: JSON.stringify(data) }));
+      }
+    }
+  }
+}
+globalThis.EventSource = FakeEventSource as unknown as typeof EventSource;

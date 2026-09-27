@@ -33,13 +33,14 @@
 
   --verified: oklch(0.46 0.1 163);
   --verified-soft: oklch(0.955 0.035 163);
-  --verified-solid: oklch(0.62 0.14 163);
+  --verified-solid: oklch(0.48 0.11 163);
   --review: oklch(0.5 0.11 60);
   --review-soft: oklch(0.96 0.045 85);
   --review-solid: oklch(0.78 0.15 75);
   --flagged: oklch(0.5 0.17 15);
   --flagged-soft: oklch(0.955 0.03 15);
-  --flagged-solid: oklch(0.63 0.19 15);
+  --flagged-solid: oklch(0.7 0.17 10);
+  --chart-series: oklch(0.5 0.15 275);
 
   --shadow-color: 275 40% 20%;
 }
@@ -67,13 +68,14 @@
 
   --verified: oklch(0.8 0.14 163);
   --verified-soft: oklch(0.28 0.05 163);
-  --verified-solid: oklch(0.7 0.15 163);
+  --verified-solid: oklch(0.58 0.13 163);
   --review: oklch(0.84 0.13 80);
   --review-soft: oklch(0.3 0.05 70);
-  --review-solid: oklch(0.8 0.15 75);
+  --review-solid: oklch(0.82 0.15 78);
   --flagged: oklch(0.78 0.13 15);
   --flagged-soft: oklch(0.29 0.06 15);
-  --flagged-solid: oklch(0.68 0.19 15);
+  --flagged-solid: oklch(0.78 0.14 10);
+  --chart-series: oklch(0.72 0.12 275);
 
   --shadow-color: 275 50% 3%;
 }
@@ -116,6 +118,7 @@
   --color-flagged: var(--flagged);
   --color-flagged-soft: var(--flagged-soft);
   --color-flagged-solid: var(--flagged-solid);
+  --color-chart-series: var(--chart-series);
 
   --shadow-soft:
     0 1px 2px hsl(var(--shadow-color) / 0.05), 0 4px 16px -6px hsl(var(--shadow-color) / 0.1);
