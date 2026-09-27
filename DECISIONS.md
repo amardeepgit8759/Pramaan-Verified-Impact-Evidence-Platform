@@ -63,14 +63,59 @@ Checked against https://ai.google.dev/gemini-api/docs/models on 2026-09-27:
   supports up to 2,000 dimensions, and 768 is one of Google's recommended sizes; Embedding 2
   re-normalizes truncated vectors itself.
 
-### Trust Score model (in `packages/shared`)
+## Domain model and core logic (2026-09-27)
 
-- **Score = 100 − the configured penalty for each failed check**, floored at 0. Every check
-  appears in the breakdown with its penalty, so the UI can show exactly why an asset scored
-  what it did.
-- **Bands:** `verified` at or above the verified cut-off, `review` at or above the review
-  cut-off, otherwise `flagged`. The schema rejects a verified cut-off that isn't above review.
-- **Two extra settings** beyond those the brief lists, because the checks can't run without
-  them: `gpsRadiusMeters` (how far from the site counts as the wrong location) and
-  `captureDateToleranceDays` (how far outside the project timeline counts as the wrong date).
-  Both live in the same per-org settings and are editable.
+### Settings
+
+- Defaults follow Section 5.2 exactly (60/40/25-or-40/20/15/10, pHash threshold 6, late upload
+  90 days, gap 30 days, bands 80/50). This replaces the scaffold's guessed defaults.
+- **Two numbers in the rules that the brief doesn't list as settings are settings anyway:**
+  the 7-day duplicate burst window (`duplicate_burst_days`) and the 10× "far away" multiplier
+  (`far_location_multiplier`). Rule 1 says no magic numbers, so they're editable like the rest.
+- `weights` is a JSON object keyed by check type, plus `wrong_location_far` for the heavier
+  location deduction.
+
+### Trust Score rules where the brief left room
+
+- **Exact duplicate, same project:** the burst window is measured on upload time. The file is
+  byte-identical, so capture times always match and can't tell a retry from a re-use.
+- **Near duplicate ignores exact copies** (same etag), so one copied file isn't penalised twice
+  (60 + 40). Exact copies are the exact-duplicate check's job.
+- **Checks that need missing data pass as "Not checked"** (wrong location without GPS or a site,
+  wrong time and late upload without a capture date). The missing-metadata check alone carries
+  that penalty, so missing data costs 15 points, not 15 + 20 + 10.
+- **Project end date is inclusive** (anything captured on the end date is in range), and an
+  open end date means the project is ongoing.
+- **EXIF times have no zone.** `OffsetTimeOriginal` is applied when the camera wrote one;
+  otherwise the time is read as UTC. At day-level granularity this only matters at midnight.
+- **Missing-metadata wording** always ends "unverified, not necessarily fake".
+- **Report eligibility:** a verified asset (unless an admin rejected it), or any asset an admin
+  approved. Approval never changes the stored score.
+- **Documentation gaps** only apply to `active` projects, and "verified evidence" means
+  report-eligible (so an approved asset closes a gap).
+
+### Schema
+
+- **pHash is `bit(64)`.** Cloudinary's 16-hex-digit hash is converted to a bit string, so the
+  near-duplicate search is a plain `bit_count(phash # $1) <= threshold` in SQL (tested against
+  real Postgres), scoped to the organization and to other projects.
+- **Columns added beyond Section 4**, each because a later rule needs it:
+  - `users.invite_token_hash`, `invite_expires_at` hold the hashed password-set token for invited users.
+  - `assets.original_filename` and `assets.exif` (the raw EXIF fields the capture data came
+    from) are there for the asset detail view and transparency.
+  - `assets.review_decision` is the latest decision from the append-only `reviews` log. It's
+    denormalized so "eligible for reports" is a simple filter.
+  - `trust_checks.reason` holds the plain-language sentence each check produces.
+  - `reviews.trust_score_at_review` lets the evidence annex show what score the admin saw.
+  - `reports.dropped_claims` and `reports.error` record how many model claims failed citation
+    checks, and why a generation failed.
+  - `report_claims.section` holds the section heading, which Gemini's output has but the table didn't.
+- **`trust_checks` holds the current result only** (one row per asset and check type, replaced
+  on re-score). The history of score changes lives in `events` (`asset.rescored`).
+- **Enums:**
+  - `project_status` is `active | completed | archived`.
+  - `report_status` is `generating | ready | failed`.
+  - `tagging_provider` adds `none` for assets that couldn't be tagged.
+- **`events.id` is a bigint identity** so SSE clients can resume from `Last-Event-ID`.
+- Deleting an organization cascades to everything. Deleting a site keeps its assets and just
+  unassigns them.

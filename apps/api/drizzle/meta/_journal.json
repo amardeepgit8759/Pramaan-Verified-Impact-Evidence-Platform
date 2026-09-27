@@ -8,6 +8,13 @@
       "when": 1790525801460,
       "tag": "0000_enable_pgvector",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790529772652,
+      "tag": "0001_domain_model",
+      "breakpoints": true
     }
   ]
 }

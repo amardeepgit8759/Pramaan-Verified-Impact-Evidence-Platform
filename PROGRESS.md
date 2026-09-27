@@ -32,3 +32,33 @@
   startup with the missing-variable list until they're added. That's intended.
 - pnpm still prints an "Ignored build scripts" notice for `@google/genai` and `protobufjs`.
   Both scripts are no-ops or version notices, so nothing breaks; the notice is cosmetic.
+
+## Domain model and core logic — 2026-09-27
+
+**Built**
+
+- Drizzle schema and migration for all 12 tables in Section 4, with the requested indexes:
+  `(org_id)`, `(project_id, captured_at)`, `etag`, and HNSW (cosine) on `embedding vector(768)`.
+- `packages/shared`:
+  - `computeTrustScore`, with all six checks and plain-language reasons
+  - settings schema and defaults matching Section 5.2
+  - EXIF GPS parsing (decimal, DMS, degree-symbol, rational and GPSPosition forms) and EXIF date parsing
+  - haversine distance and nearest-site auto-assignment
+  - pHash conversion and Hamming distance
+  - report eligibility and documentation-gap status
+- API services: the near-duplicate / exact-duplicate candidate search in SQL, and org settings
+  seeding and loading.
+
+**Tested**
+
+- Shared: 136 tests, with coverage enforced at **100%** for lines, branches, functions and
+  statements.
+- API: 18 tests, including 8 against real Postgres for the duplicate search (threshold,
+  same-project exclusion, etag-only matching for videos, org isolation, excluding the asset
+  itself, feeding `computeTrustScore`) and 2 for settings round-trips.
+- `pnpm lint`, `pnpm typecheck`, `pnpm test` all pass.
+
+**Known issues**
+
+- Nothing runs this logic end to end yet. The upload/confirm pipeline, auth and the UI come
+  with the phases.
