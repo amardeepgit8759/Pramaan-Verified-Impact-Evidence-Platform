@@ -22,16 +22,23 @@ export interface SiteArea extends LatLng {
   radiusM: number;
 }
 
+/** The closest site to the point, however far; null only when there are no sites. */
+export function nearestSite<S extends SiteArea>(point: LatLng, sites: readonly S[]) {
+  let best: { site: S; distanceKm: number } | null = null;
+  for (const site of sites) {
+    const distanceKm = haversineKm(point, site);
+    if (!best || distanceKm < best.distanceKm) best = { site, distanceKm };
+  }
+  return best;
+}
+
 /**
  * The nearest site whose radius contains the point, or null when the point is outside
  * every site. Used to auto-assign an asset to a site from its GPS.
  */
 export function nearestSiteWithin<S extends SiteArea>(point: LatLng, sites: readonly S[]) {
-  let best: { site: S; distanceKm: number } | null = null;
-  for (const site of sites) {
-    const distanceKm = haversineKm(point, site);
-    if (distanceKm * 1000 > site.radiusM) continue;
-    if (!best || distanceKm < best.distanceKm) best = { site, distanceKm };
-  }
-  return best;
+  return nearestSite(
+    point,
+    sites.filter((site) => haversineKm(point, site) * 1000 <= site.radiusM),
+  );
 }

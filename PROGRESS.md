@@ -216,3 +216,65 @@ arrived; it's listed under the phase it belongs to.
   still waits on keys (`pnpm test:live`).
 - `site.gap_changed` events (a site entering or leaving a gap) arrive with Phase 5. Gaps
   are already computed live on every metrics read.
+
+## Phase 4 — Evidence UI, asset drawer, map, timeline, review ✅
+
+### Built
+
+- **Review API:** `POST /api/assets/:id/review` (admins only) approves or rejects evidence
+  in the review or flagged bands. A note is required. Each decision is appended to the
+  `reviews` log with the score at the time; the Trust Score itself never changes. The
+  latest decision is kept on the asset, and `asset.reviewed` is emitted. Verified evidence
+  can't be reviewed (409).
+- **Asset detail** now includes the review history (reviewer, decision, note, score at
+  review) and a summary of every asset a duplicate check matched (project, thumbnail,
+  band), so the UI can link straight to it.
+- **Thumbnails keep the photo's shape** (clamped between 3:4 and 4:3) and are cropped
+  around the subject (`c_fill,g_auto,f_auto,q_auto`), for a masonry grid that doesn't jump.
+- **Project tabs:** Overview, Evidence, Map, Timeline, Review, Sites.
+  - **Evidence:** a filter row (capture-date range, site, band, tag, all in the URL), a
+    masonry grid with band badges and alt text, and the uploader.
+  - **Asset drawer**, opened from any tab and kept in the URL (`?asset=…`) so it can be
+    shared: the image or video, a radial Trust gauge with the org's band cut-offs marked,
+    the six checks with pass/fail, deduction, reason and a link to any matched duplicate,
+    the admin review form, review history, tags with the provider used, caption, and a
+    metadata table (capture and upload time, uploader, GPS linked to OpenStreetMap, format,
+    size, the raw EXIF fields used, and the Cloudinary URL with copy).
+  - **Map:** sites as radius circles, evidence as pins in band colours; a pin opens a
+    preview with "Open details". A legend, and a count of files without GPS.
+  - **Timeline:** newest month first, grouped by site, using capture time (upload time
+    when there's none).
+  - **Review:** the project's queue, oldest first. Each item shows its failed checks'
+    reasons and inline approve/reject with a required note; viewers see it read-only.
+- The dashboard's needs-review items open the project's Review tab.
+
+### Tested
+
+- API (5 new tests): approving flagged evidence keeps the score, logs the review and emits
+  the event; a later rejection is appended, not overwritten; approval removes it from the
+  queue; a note, an admin and a non-verified band are all required; other organisations
+  get 404. Duplicate matches appear in the detail.
+- Web: component tests for the Trust breakdown (all six checks with pass/fail, deduction
+  and reason; the 100 − deductions arithmetic; the matched-asset link; icon + word for every
+  state, never colour alone) and the gauge's text alternative. Route tests: a card opens
+  the drawer with breakdown, provider and EXIF, and the URL carries `?asset=`; the Review
+  tab requires a note before posting; viewers get no review controls; timeline grouping.
+- **e2e (Phase 4 gate):** upload → flagged → review → approved, through the real UI. A
+  photo goes to Phase 1 and verifies. The same file uploaded to Phase 2 is flagged as an
+  exact copy. It appears in Phase 2's Review tab with the reason. Approving without a note
+  is refused; with a note, the queue empties. The drawer then shows "Approved by admin", the
+  history entry and the unchanged score (30: −60 for the copy, −10 because a 2024 photo
+  uploaded today is late).
+
+- Manual: screenshots of the evidence grid, drawer (light, dark, 375 px), map, timeline
+  and review queue with pipeline-generated data. They surfaced two real bugs, both fixed
+  with tests:
+  - evidence outside every site skipped the location check (see DECISIONS)
+  - EXIF seconds written as "60.00″" were rejected, dropping the photo's GPS
+    The map now tones down the basemap and uses larger pins, so OpenStreetMap's own red
+    symbols can't be mistaken for flagged evidence.
+
+### Known issues
+
+- The Map and Timeline tabs load every asset in the project in one request. That's fine
+  at hackathon scale; paging comes with Phase 7 hardening if needed.

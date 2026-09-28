@@ -57,7 +57,8 @@ export function parseGpsCoordinate(value: unknown, axis: Axis, ref?: unknown): n
     if (!tokens || tokens.length > 3) return null;
     const [deg, min = 0, sec = 0] = tokens.map(toNumber) as [number, number?, number?];
     if (![deg, min, sec].every(Number.isFinite)) return null;
-    if (min < 0 || min >= 60 || sec < 0 || sec >= 60) return null;
+    // Exactly 60 seconds happens when a writer rounds 59.996″ to two decimals; it's valid.
+    if (min < 0 || min >= 60 || sec < 0 || sec > 60) return null;
     if (tokens.length > 1 && !Number.isInteger(deg)) return null;
     magnitude = Math.abs(deg) + min / 60 + sec / 3600;
     if (deg < 0 || Object.is(deg, -0)) sign = -1;

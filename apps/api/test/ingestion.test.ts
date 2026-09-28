@@ -214,6 +214,18 @@ describe('POST /api/assets/confirm', () => {
     expect(asset.trustBand).toBe('review');
   });
 
+  it('checks a photo outside every site against the nearest one, leaving it unassigned', async () => {
+    // "Match from GPS", and the GPS is ~5.6 km north of Village Rampur.
+    const asset = await upload('elsewhere.jpg', {
+      metadata: { ...goodExif, GPSLatitude: '28.52', GPSLatitudeRef: 'N' },
+    });
+    expect(asset.siteId).toBeNull();
+    const location = checkOf(asset, 'wrong_location');
+    expect(location).toMatchObject({ passed: false, deduction: 40 });
+    expect(location.reason).toMatch(/^Taken 5\.\d km from the nearest site, Village Rampur/);
+    expect(location.detail).toMatchObject({ assigned: false, siteId: site.id });
+  });
+
   it('flags an exact copy across projects and re-scores the earlier upload too', async () => {
     const original = await upload('original.jpg', { etag: 'same-file' });
     const phase1 = await createProject('Borewell Project – Phase 1');

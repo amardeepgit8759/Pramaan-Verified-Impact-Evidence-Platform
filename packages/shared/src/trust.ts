@@ -1,6 +1,6 @@
 import type { CheckType, TrustBand } from './domain.js';
 import { formatDay, formatDistance, plural } from './format.js';
-import { haversineKm } from './geo.js';
+import { haversineKm, nearestSite } from './geo.js';
 import { hammingDistance } from './phash.js';
 import type { OrgSettings } from './settings.js';
 
@@ -43,6 +43,26 @@ export interface ScoringSite {
   lat: number;
   lng: number;
   radiusM: number;
+  /**
+   * True when the asset isn't assigned to this site: it's the project's closest site,
+   * used so evidence outside every site can't skip the location check.
+   */
+  nearest?: boolean;
+}
+
+/**
+ * The site an asset's location is checked against: its own site, or, for unassigned
+ * evidence with GPS, the project's closest site. Null when neither applies.
+ */
+export function comparisonSite<S extends Omit<ScoringSite, 'nearest'>>(
+  assigned: S | null,
+  point: { lat: number | null; lng: number | null },
+  projectSites: readonly S[],
+): ScoringSite | null {
+  if (assigned) return assigned;
+  if (point.lat === null || point.lng === null) return null;
+  const closest = nearestSite({ lat: point.lat, lng: point.lng }, projectSites);
+  return closest && { ...closest.site, nearest: true };
 }
 
 export interface TrustCheckResult {
@@ -181,13 +201,16 @@ function wrongLocation(
     siteId: site.id,
     distanceKm: Math.round(distanceKm * 1000) / 1000,
     radiusM: site.radiusM,
+    assigned: !site.nearest,
   };
   const distanceM = distanceKm * 1000;
+  // An unassigned asset is compared with the project's closest site, and says so.
+  const from = site.nearest ? `the nearest site, ${site.name}` : site.name;
 
   if (distanceM <= site.radiusM) {
     return pass(
       'wrong_location',
-      `Taken ${formatDistance(distanceKm)} from ${site.name}, within its ${radius} radius`,
+      `Taken ${formatDistance(distanceKm)} from ${from}, within its ${radius} radius`,
       { ...detail, far: false },
     );
   }
@@ -195,7 +218,7 @@ function wrongLocation(
   return fail(
     'wrong_location',
     far ? settings.weights.wrong_location_far : settings.weights.wrong_location,
-    `Taken ${formatDistance(distanceKm)} from ${site.name} (allowed radius ${radius})`,
+    `Taken ${formatDistance(distanceKm)} from ${from} (allowed radius ${radius})`,
     { ...detail, far },
   );
 }

@@ -1,10 +1,13 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { MotionGlobalConfig } from 'framer-motion';
 import { afterEach, vi } from 'vitest';
 
 // jsdom never runs animation frames to completion; render final states directly.
 MotionGlobalConfig.skipAnimations = true;
+
+// Full-route renders in jsdom can take over a second when the whole suite runs in parallel.
+configure({ asyncUtilTimeout: 5000 });
 
 // Vitest globals are off, so Testing Library can't register its own cleanup.
 afterEach(() => {

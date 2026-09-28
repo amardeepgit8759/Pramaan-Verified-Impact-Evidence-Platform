@@ -5,6 +5,7 @@ import { phashFromHex } from './phash.js';
 import { orgSettingsSchema, type OrgSettings } from './settings.js';
 import {
   bandFor,
+  comparisonSite,
   computeTrustScore,
   type DuplicateCandidate,
   type ScoringAsset,
@@ -296,6 +297,23 @@ describe('computeTrustScore', () => {
       expect(c).toMatchObject({ passed: true, reason: 'Not checked: no site assigned' });
     });
 
+    it('says when it compared an unassigned asset with the nearest site', () => {
+      const nearest = { ...site, nearest: true };
+      const inside = check(score({}, [], { site: nearest }), 'wrong_location');
+      expect(inside).toMatchObject({ passed: true, detail: { assigned: false } });
+      expect(inside.reason).toBe(
+        'Taken 59 m from the nearest site, Village Rampur, within its 500 m radius',
+      );
+
+      const outside = check(score({ lat: 28.84 }, [], { site: nearest }), 'wrong_location');
+      expect(outside).toMatchObject({ passed: false, deduction: 40 });
+      expect(outside.reason).toMatch(/^Taken 41\.\d km from the nearest site, Village Rampur/);
+    });
+
+    it('marks an assigned site as assigned', () => {
+      expect(check(score(), 'wrong_location').detail.assigned).toBe(true);
+    });
+
     it('is not checked without GPS (missing_metadata covers it)', () => {
       const c = check(score({ lat: null }), 'wrong_location');
       expect(c).toMatchObject({ passed: true, reason: 'Not checked: no GPS location in the file' });
@@ -421,6 +439,29 @@ describe('computeTrustScore', () => {
     const result = score({ lat: 28.48, capturedAt: null });
     expect(result.score).toBe(60);
     expect(result.band).toBe('review');
+  });
+});
+
+describe('comparisonSite', () => {
+  const rampur = { id: 's1', name: 'Village Rampur', lat: 28.47, lng: 77.03, radiusM: 500 };
+  const kheda = { id: 's2', name: 'Kheda Dhani', lat: 28.6, lng: 77.2, radiusM: 400 };
+  const sites = [rampur, kheda];
+
+  it('uses the assigned site when there is one', () => {
+    expect(comparisonSite(kheda, { lat: 28.47, lng: 77.03 }, sites)).toBe(kheda);
+  });
+
+  it('falls back to the closest project site for unassigned evidence with GPS', () => {
+    expect(comparisonSite(null, { lat: 28.5, lng: 77.05 }, sites)).toEqual({
+      ...rampur,
+      nearest: true,
+    });
+  });
+
+  it('has nothing to compare without GPS or without sites', () => {
+    expect(comparisonSite(null, { lat: null, lng: 77 }, sites)).toBeNull();
+    expect(comparisonSite(null, { lat: 28, lng: null }, sites)).toBeNull();
+    expect(comparisonSite(null, { lat: 28.5, lng: 77.05 }, [])).toBeNull();
   });
 });
 

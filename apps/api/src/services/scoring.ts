@@ -1,4 +1,5 @@
 import {
+  comparisonSite,
   computeTrustScore,
   TRUST_BANDS,
   type OrgSettings,
@@ -53,6 +54,17 @@ async function scoreAssets(
     .where(and(...conditions))
     .orderBy(assets.uploadedAt);
 
+  // Unassigned evidence is checked against its project's closest site, so load each
+  // project's sites once.
+  const projectIds = [...new Set(rows.map((r) => r.project.id))];
+  const allSites = projectIds.length
+    ? await db.select().from(sites).where(inArray(sites.projectId, projectIds))
+    : [];
+  const sitesByProject = new Map<string, (typeof allSites)[number][]>();
+  for (const s of allSites) {
+    sitesByProject.set(s.projectId, [...(sitesByProject.get(s.projectId) ?? []), s]);
+  }
+
   const scored: ScoredAsset[] = [];
   for (const { asset, project, site } of rows) {
     const candidates = await findDuplicateCandidates(db, {
@@ -81,7 +93,7 @@ async function scoreAssets(
         startDate: dayToDate(project.startDate),
         endDate: project.endDate ? dayToDate(project.endDate) : null,
       },
-      site && { id: site.id, name: site.name, lat: site.lat, lng: site.lng, radiusM: site.radiusM },
+      comparisonSite(site, asset, sitesByProject.get(project.id) ?? []),
       settings,
     );
     scored.push({

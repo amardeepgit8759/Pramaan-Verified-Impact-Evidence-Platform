@@ -44,10 +44,14 @@ export interface MediaStore {
     resourceType: ResourceType,
     context: Record<string, string>,
   ): Promise<void>;
-  thumbnailUrl(publicId: string, resourceType: ResourceType): string;
+  /** `aspect` is width/height; thumbnails are cropped around the subject to it. */
+  thumbnailUrl(publicId: string, resourceType: ResourceType, aspect?: number): string;
   previewUrl(publicId: string, resourceType: ResourceType): string;
   destroy(publicId: string, resourceType: ResourceType): Promise<void>;
 }
+
+/** Grid thumbnails: wide enough for 2x screens in a 3–4 column masonry. */
+const THUMB_WIDTH = 480;
 
 /** Formats a field phone or camera produces; anything else is refused at upload. */
 const ALLOWED_FORMATS = 'jpg,jpeg,png,webp,heic,heif,avif,mp4,mov,webm,3gp';
@@ -199,14 +203,19 @@ export class CloudinaryMediaStore implements MediaStore {
     });
   }
 
-  thumbnailUrl(publicId: string, resourceType: ResourceType) {
+  thumbnailUrl(publicId: string, resourceType: ResourceType, aspect = 1) {
     return cloudinary.url(publicId, {
       resource_type: resourceType,
       secure: true,
       format: resourceType === 'video' ? 'jpg' : undefined,
       transformation: [
         ...(resourceType === 'video' ? [{ start_offset: 'auto' }] : []),
-        { width: 480, height: 480, crop: 'fill', gravity: 'auto' },
+        {
+          width: THUMB_WIDTH,
+          height: Math.round(THUMB_WIDTH / aspect),
+          crop: 'fill',
+          gravity: 'auto',
+        },
         { fetch_format: 'auto', quality: 'auto' },
       ],
     });

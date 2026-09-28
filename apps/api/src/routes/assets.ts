@@ -1,4 +1,4 @@
-import { confirmUploadInput, uploadSignatureInput } from '@pramaan/shared';
+import { confirmUploadInput, reviewInput, uploadSignatureInput } from '@pramaan/shared';
 import { Router, type Request } from 'express';
 import { currentUser, requireAuth, requireRole } from '../auth/middleware.js';
 import { requireProject } from '../services/access.js';
@@ -9,6 +9,7 @@ import {
   uploadFolder,
   type IngestDeps,
 } from '../services/ingestion.js';
+import { reviewAsset } from '../services/review.js';
 
 /** Field staff and admins upload; viewers only look. */
 const canUpload = requireRole('admin', 'field');
@@ -55,6 +56,14 @@ export function assetsRouter(deps: IngestDeps) {
 
   router.get('/:id', async (req, res) => {
     res.json(await loadAssetDetail(deps.db, deps.media, currentUser(req).orgId, req.params.id));
+  });
+
+  /** Approve or reject evidence that needs review. Admins only; a note is required. */
+  router.post('/:id/review', requireRole('admin'), async (req, res) => {
+    const user = currentUser(req);
+    const input = reviewInput.parse(req.body);
+    await reviewAsset(deps.db, user, req.params.id, input);
+    res.json(await loadAssetDetail(deps.db, deps.media, user.orgId, req.params.id));
   });
 
   return router;

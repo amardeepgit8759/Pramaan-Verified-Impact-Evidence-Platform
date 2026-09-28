@@ -72,9 +72,43 @@ export const assetSchema = z.object({
 });
 export type Asset = z.infer<typeof assetSchema>;
 
+export const reviewInput = z.object({
+  decision: z.enum(REVIEW_DECISIONS),
+  note: z
+    .string()
+    .trim()
+    .min(3, 'Add a short note explaining the decision')
+    .max(2000, 'Keep the note under 2,000 characters'),
+});
+export type ReviewInput = z.infer<typeof reviewInput>;
+
+/** One entry in an asset's append-only review log. */
+export const reviewSchema = z.object({
+  id: z.uuid(),
+  decision: z.enum(REVIEW_DECISIONS),
+  note: z.string(),
+  reviewerName: z.string(),
+  trustScoreAtReview: z.number().int(),
+  createdAt: z.string(),
+});
+export type Review = z.infer<typeof reviewSchema>;
+
+/** An asset a duplicate check points at, enough to show and open it. */
+export const matchedAssetSchema = z.object({
+  id: z.uuid(),
+  projectId: z.uuid(),
+  projectName: z.string(),
+  thumbnailUrl: z.string(),
+  trustBand: z.enum(TRUST_BANDS),
+});
+export type MatchedAsset = z.infer<typeof matchedAssetSchema>;
+
 export const assetDetailSchema = assetSchema.extend({
   checks: z.array(trustCheckSchema),
   exif: z.record(z.string(), z.string()),
+  reviews: z.array(reviewSchema),
+  /** Assets that duplicate checks matched, keyed by id. */
+  matches: z.record(z.string(), matchedAssetSchema),
 });
 export type AssetDetail = z.infer<typeof assetDetailSchema>;
 

@@ -1,8 +1,15 @@
-import { CHECK_TYPES, TRUST_BANDS, type Asset, type AssetDetail } from '@pramaan/shared';
-import { and, arrayContains, asc, desc, eq, gte, lt, type SQL } from 'drizzle-orm';
+import {
+  CHECK_TYPES,
+  thumbnailAspect,
+  TRUST_BANDS,
+  type Asset,
+  type AssetDetail,
+  type MatchedAsset,
+} from '@pramaan/shared';
+import { and, arrayContains, asc, desc, eq, gte, inArray, lt, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Db } from '../db/client.js';
-import { assets, projects, sites, trustChecks, users } from '../db/schema.js';
+import { assets, projects, reviews, sites, trustChecks, users } from '../db/schema.js';
 import { HttpError } from '../http-error.js';
 import type { MediaStore } from './media.js';
 
@@ -49,7 +56,11 @@ function toAsset({ asset: a, projectName, siteName, uploaderName }: Row, media: 
     bytes: a.bytes,
     originalFilename: a.originalFilename,
     secureUrl: a.secureUrl,
-    thumbnailUrl: media.thumbnailUrl(a.cloudinaryPublicId, a.resourceType),
+    thumbnailUrl: media.thumbnailUrl(
+      a.cloudinaryPublicId,
+      a.resourceType,
+      thumbnailAspect(a.width, a.height),
+    ),
     previewUrl: media.previewUrl(a.cloudinaryPublicId, a.resourceType),
     capturedAt: a.capturedAt?.toISOString() ?? null,
     uploadedAt: a.uploadedAt.toISOString(),
@@ -117,8 +128,45 @@ export async function loadAssetDetail(
   // Always present checks in the canonical order.
   checks.sort((a, b) => CHECK_TYPES.indexOf(a.checkType) - CHECK_TYPES.indexOf(b.checkType));
 
+  const history = await db
+    .select({ review: reviews, reviewerName: users.name })
+    .from(reviews)
+    .innerJoin(users, eq(users.id, reviews.reviewerId))
+    .where(eq(reviews.assetId, row.asset.id))
+    .orderBy(desc(reviews.createdAt));
+
+  // Duplicate checks name the asset they matched; include enough to show and open it.
+  const matchedIds = [
+    ...new Set(
+      checks.map((c) => c.detail.matchedAssetId).filter((v): v is string => typeof v === 'string'),
+    ),
+  ];
+  const matchedRows = matchedIds.length
+    ? await baseQuery(db).where(and(eq(assets.orgId, orgId), inArray(assets.id, matchedIds)))
+    : [];
+  const matches: Record<string, MatchedAsset> = {};
+  for (const m of matchedRows) {
+    const a = toAsset(m, media);
+    matches[a.id] = {
+      id: a.id,
+      projectId: a.projectId,
+      projectName: a.projectName,
+      thumbnailUrl: a.thumbnailUrl,
+      trustBand: a.trustBand,
+    };
+  }
+
   return {
     ...toAsset(row, media),
+    reviews: history.map(({ review, reviewerName }) => ({
+      id: review.id,
+      decision: review.decision,
+      note: review.note,
+      reviewerName,
+      trustScoreAtReview: review.trustScoreAtReview,
+      createdAt: review.createdAt.toISOString(),
+    })),
+    matches,
     checks: checks.map((c) => ({
       type: c.checkType,
       passed: c.passed,

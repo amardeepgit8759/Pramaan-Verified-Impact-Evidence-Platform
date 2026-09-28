@@ -1,5 +1,6 @@
 import {
   buildEmbeddingText,
+  comparisonSite,
   computeTrustScore,
   extractCaptureData,
   nearestSiteWithin,
@@ -129,8 +130,8 @@ export async function confirmUpload(
   const phash = resource.phash ? phashFromHex(resource.phash) : null;
 
   // No site chosen: use the nearest site whose radius contains the photo's GPS.
+  const projectSites = await db.select().from(sites).where(eq(sites.projectId, project.id));
   if (!site && capture.lat !== null && capture.lng !== null) {
-    const projectSites = await db.select().from(sites).where(eq(sites.projectId, project.id));
     site = nearestSiteWithin({ lat: capture.lat, lng: capture.lng }, projectSites)?.site ?? null;
   }
 
@@ -173,7 +174,8 @@ export async function confirmUpload(
       startDate: dayToDate(project.startDate),
       endDate: project.endDate ? dayToDate(project.endDate) : null,
     },
-    site,
+    // Outside every site: still checked, against the closest one, so it can't skip the check.
+    comparisonSite(site, capture, projectSites),
     settings,
   );
 

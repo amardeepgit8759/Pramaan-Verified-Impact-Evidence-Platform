@@ -47,6 +47,8 @@ const asset: AssetDetail = {
   reviewDecision: null,
   checks: [],
   exif: {},
+  reviews: [],
+  matches: {},
 };
 
 /** Stands in for the browser's direct upload to Cloudinary. */

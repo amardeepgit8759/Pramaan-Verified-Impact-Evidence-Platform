@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { isReportEligible, siteGapStatus } from './evidence.js';
 import { formatDay, formatDistance, plural } from './format.js';
-import { haversineKm, nearestSiteWithin } from './geo.js';
+import { haversineKm, nearestSite, nearestSiteWithin } from './geo.js';
 import { hammingDistance, isPhashBits, phashFromHex } from './phash.js';
 
 describe('haversineKm', () => {
@@ -17,6 +17,22 @@ describe('haversineKm', () => {
 
   it('handles antipodal points', () => {
     expect(haversineKm({ lat: 0, lng: 0 }, { lat: 0, lng: 180 })).toBeCloseTo(20015.1, 0);
+  });
+});
+
+describe('nearestSite', () => {
+  it('returns the closest site however far away it is', () => {
+    const sites = [
+      { id: 'near', lat: 28.5, lng: 77.0, radiusM: 10 },
+      { id: 'far', lat: 30, lng: 80, radiusM: 100_000 },
+    ];
+    const result = nearestSite({ lat: 28.6, lng: 77.0 }, sites);
+    expect(result?.site.id).toBe('near');
+    expect(result?.distanceKm).toBeCloseTo(11.1, 1);
+  });
+
+  it('returns null with no sites', () => {
+    expect(nearestSite({ lat: 0, lng: 0 }, [])).toBeNull();
   });
 });
 

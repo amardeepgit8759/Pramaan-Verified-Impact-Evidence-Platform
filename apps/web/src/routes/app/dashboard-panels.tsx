@@ -127,7 +127,7 @@ export function ReviewQueuePreview({ total }: { total: number }) {
           {assets.map((a) => (
             <li key={a.id}>
               <Link
-                to={`/app/projects/${a.projectId}/evidence`}
+                to={`/app/projects/${a.projectId}/review`}
                 className="flex items-center gap-3 rounded-xl p-1 -m-1 hover:bg-accent"
               >
                 <img

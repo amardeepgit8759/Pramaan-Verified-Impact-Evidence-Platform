@@ -284,3 +284,39 @@ structured-output, image and embedding docs, on 2026-09-27/28.
   excluded from the Docker image through the API package's `files`). It keeps browser
   tests hermetic and runnable in CI without secrets. Pointing `BASE_URL` at a deployment
   runs the same suite against real services.
+
+## Phase 4: evidence UI and review (2026-09-28)
+
+- **Only review and flagged evidence can be reviewed** (the brief's wording). Verified
+  evidence returns 409; there's nothing for an admin to decide.
+- **Reviews never change the score.** The decision is appended to the `reviews` log with the
+  score the admin saw, and the latest decision is kept on the asset for filtering. Changing
+  your mind adds a new entry; nothing is edited or deleted.
+- **The asset drawer lives in the URL** (`?asset=<id>`) on every project tab, so a reviewer
+  can send a colleague a link to one piece of evidence, and the browser Back button closes
+  it.
+- **Duplicate checks link to what they matched.** The detail response includes a small
+  summary of each matched asset (project, thumbnail, band) so the drawer can show and open
+  it without another request.
+- **Masonry thumbnails keep the photo's shape**, clamped between 3:4 and 4:3, and are cropped
+  around the subject by Cloudinary (`g_auto`). The web app computes the same ratio to
+  reserve space, so the grid doesn't jump while images load. The helper lives in
+  `packages/shared` so the API and web can't disagree.
+- **Evidence filters live in the URL** (capture-date range, site, band, tag), so a filtered
+  view can be shared or bookmarked. Date filters use the capture date, because that's what
+  "when was this evidence from" means.
+- **The Review tab shows why each item scored low** (its failed checks' reasons) next to the
+  approve/reject controls, so most decisions don't need the drawer at all.
+- **Alt text drops the caption's final full stop**, so it joins cleanly into longer
+  screen-reader labels ("A hand pump. Flagged, score 30. Open details").
+- **Evidence outside every site is still location-checked.** Found while testing the map:
+  a photo uploaded with "match from GPS" that falls outside every site's radius was left
+  unassigned, so its location check said "not checked" and it could score 100 from anywhere
+  in the world. Now unassigned evidence with GPS is compared with the project's closest
+  site. It stays unassigned (it genuinely isn't at a site), and the reason says so: "Taken
+  5.6 km from the nearest site, Village Rampur". Only a project with no sites, or a file
+  with no GPS, skips the check (and missing GPS already costs points under missing
+  metadata).
+- **"60.00″" is a valid EXIF seconds value.** ExifTool prints seconds to two decimals, so a
+  camera's 59.996″ is written as 60.00″. The parser used to reject it and treat the photo as
+  having no GPS. It now accepts up to 60 seconds and still rejects anything above.

@@ -3,11 +3,12 @@ import piexif from 'piexifjs';
 
 /** Degrees as the EXIF rational triple [[d,1],[m,1],[s*100,100]]. */
 function toDmsRational(value: number): [number, number][] {
-  const abs = Math.abs(value);
-  const d = Math.floor(abs);
-  const mFloat = (abs - d) * 60;
-  const m = Math.floor(mFloat);
-  const s = Math.round((mFloat - m) * 60 * 100);
+  // Work in hundredths of an arc-second so rounding carries into minutes and degrees
+  // (77.1° must become 77° 6′ 0″, not 77° 5′ 60″).
+  const total = Math.round(Math.abs(value) * 3600 * 100);
+  const d = Math.floor(total / 360_000);
+  const m = Math.floor((total % 360_000) / 6_000);
+  const s = total % 6_000;
   return [
     [d, 1],
     [m, 1],

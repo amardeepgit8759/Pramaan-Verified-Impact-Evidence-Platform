@@ -2,6 +2,9 @@ import { createBrowserRouter, type RouteObject } from 'react-router';
 import { AppLayout } from './routes/app/app-layout';
 import { DashboardPage } from './routes/app/dashboard';
 import { ProjectEvidence } from './routes/app/project/evidence';
+import { ProjectMap } from './routes/app/project/project-map';
+import { ProjectReview } from './routes/app/project/review-queue';
+import { ProjectTimeline } from './routes/app/project/timeline';
 import { ProjectOverview } from './routes/app/project/overview';
 import { ProjectLayout } from './routes/app/project/project-layout';
 import { ProjectSites } from './routes/app/project/sites';
@@ -39,6 +42,9 @@ export const routes: RouteObject[] = [
             children: [
               { index: true, element: <ProjectOverview /> },
               { path: 'evidence', element: <ProjectEvidence /> },
+              { path: 'map', element: <ProjectMap /> },
+              { path: 'timeline', element: <ProjectTimeline /> },
+              { path: 'review', element: <ProjectReview /> },
               { path: 'sites', element: <ProjectSites /> },
             ],
           },

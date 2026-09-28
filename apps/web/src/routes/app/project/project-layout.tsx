@@ -2,7 +2,15 @@ import type { ProjectSummary } from '@pramaan/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, ChevronLeft, FolderX, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { Link, NavLink, Outlet, useNavigate, useOutletContext, useParams } from 'react-router';
+import {
+  Link,
+  NavLink,
+  Outlet,
+  useNavigate,
+  useOutletContext,
+  useParams,
+  useSearchParams,
+} from 'react-router';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { EmptyState } from '@/components/empty-state';
@@ -15,16 +23,22 @@ import { formatDateRange } from '@/lib/format';
 import { projectQuery, queryKeys } from '@/lib/queries';
 import { cn } from '@/lib/utils';
 import { EditProjectDialog } from '../create-project-dialog';
+import { AssetDrawer } from './asset-drawer';
 
 const TABS = [
   { to: '', label: 'Overview', end: true },
   { to: 'evidence', label: 'Evidence', end: false },
+  { to: 'map', label: 'Map', end: false },
+  { to: 'timeline', label: 'Timeline', end: false },
+  { to: 'review', label: 'Review', end: false },
   { to: 'sites', label: 'Sites', end: false },
 ];
 
 export interface ProjectContext {
   project: ProjectSummary;
   isAdmin: boolean;
+  /** Open evidence in the detail drawer (kept in the URL, so it can be shared). */
+  openAsset: (id: string) => void;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -35,6 +49,18 @@ export function ProjectLayout() {
   const { data: session } = useSession();
   const { data: project, isPending, error } = useQuery(projectQuery(projectId));
   const isAdmin = session?.user.role === 'admin';
+  const [params, setParams] = useSearchParams();
+  const openAssetId = params.get('asset');
+  const setAsset = (id: string | null) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (id) next.set('asset', id);
+        else next.delete('asset');
+        return next;
+      },
+      { replace: id === null },
+    );
 
   if (isPending) return <ProjectSkeleton />;
   if (error) {
@@ -123,7 +149,8 @@ export function ProjectLayout() {
         </ul>
       </nav>
 
-      <Outlet context={{ project, isAdmin } satisfies ProjectContext} />
+      <Outlet context={{ project, isAdmin, openAsset: setAsset } satisfies ProjectContext} />
+      <AssetDrawer assetId={openAssetId} onOpenAsset={setAsset} onClose={() => setAsset(null)} />
     </div>
   );
 }

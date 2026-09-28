@@ -191,3 +191,25 @@
   border-radius: 0.5rem;
   font-weight: 500;
 }
+.map-pin-verified,
+.map-pin-review,
+.map-pin-flagged {
+  stroke: var(--card);
+}
+.map-pin-verified {
+  fill: var(--verified-solid);
+}
+.map-pin-review {
+  fill: var(--review-solid);
+}
+.map-pin-flagged {
+  fill: var(--flagged-solid);
+}
+.leaflet-popup-content-wrapper {
+  border-radius: 0.875rem;
+}
+
+/* Light mode: tone down the basemap so evidence pins, not map symbols, carry the colour. */
+:root:not(.dark) .leaflet-tile-pane {
+  filter: saturate(0.35) contrast(0.95);
+}

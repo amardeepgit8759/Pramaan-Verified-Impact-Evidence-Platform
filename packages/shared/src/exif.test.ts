@@ -28,6 +28,7 @@ describe('parseGpsCoordinate', () => {
     ['degrees and minutes only', `28 deg 30'`, 'lat', 'N', 28.5],
     ['EXIF rationals', '28/1 28/1 1230/100', 'lat', 'N', DMS],
     ['negative zero degrees', `-0 deg 30' 0"`, 'lat', undefined, -0.5],
+    ['seconds rounded up to 60.00', `77 deg 5' 60.00" E`, 'lng', undefined, 77.1],
     ['ignores an unknown ref', '28.5', 'lat', 'X', 28.5],
     ['ignores a blank ref', '28.5', 'lat', '  ', 28.5],
   ] as const)('parses %s', (_label, value, axis, ref, expected) => {
@@ -43,7 +44,7 @@ describe('parseGpsCoordinate', () => {
     ['too many numbers', '1 2 3 4', 'lat', undefined],
     ['minutes ≥ 60', `28 deg 60' 0"`, 'lat', undefined],
     ['negative minutes', '28 -5 3', 'lat', undefined],
-    ['seconds ≥ 60', `28 deg 1' 60"`, 'lat', undefined],
+    ['seconds over 60', `28 deg 1' 60.5"`, 'lat', undefined],
     ['fractional degrees with minutes', `28.5 deg 30'`, 'lat', undefined],
     ['a zero denominator', '28/0', 'lat', undefined],
     ['latitude above 90', '91', 'lat', undefined],
