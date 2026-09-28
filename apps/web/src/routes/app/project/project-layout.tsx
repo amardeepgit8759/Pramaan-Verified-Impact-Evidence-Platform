@@ -30,6 +30,7 @@ const TABS = [
   { to: 'evidence', label: 'Evidence', end: false },
   { to: 'map', label: 'Map', end: false },
   { to: 'timeline', label: 'Timeline', end: false },
+  { to: 'compare', label: 'Compare', end: false },
   { to: 'review', label: 'Review', end: false },
   { to: 'sites', label: 'Sites', end: false },
 ];

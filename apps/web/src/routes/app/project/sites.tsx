@@ -1,6 +1,6 @@
 import type { Site } from '@pramaan/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Images, MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Images, MapPin, MapPinOff, Pencil, Plus, Trash2 } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/confirm-dialog';
@@ -9,7 +9,7 @@ import { FormError } from '@/components/field';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
-import { queryKeys, sitesQuery } from '@/lib/queries';
+import { metricsQuery, queryKeys, sitesQuery } from '@/lib/queries';
 import { useProject } from './project-layout';
 import { SiteDialog } from './site-dialog';
 
@@ -20,6 +20,8 @@ const formatRadius = (m: number) => (m < 1000 ? `${m} m` : `${(m / 1000).toFixed
 export function ProjectSites() {
   const { project, isAdmin } = useProject();
   const { data: sites, isPending, error } = useQuery(sitesQuery(project.id));
+  const { data: metrics } = useQuery(metricsQuery(project.id));
+  const gaps = new Map(metrics?.gapSites.map((g) => [g.siteId, g.reason]));
   const [dialog, setDialog] = useState<{ site?: Site } | null>(null);
 
   const openCreate = () => setDialog({});
@@ -70,6 +72,7 @@ export function ProjectSites() {
               <SiteRow
                 key={site.id}
                 site={site}
+                gapReason={gaps.get(site.id) ?? null}
                 isAdmin={isAdmin}
                 onEdit={() => setDialog({ site })}
               />
@@ -89,7 +92,17 @@ export function ProjectSites() {
   );
 }
 
-function SiteRow({ site, isAdmin, onEdit }: { site: Site; isAdmin: boolean; onEdit: () => void }) {
+function SiteRow({
+  site,
+  gapReason,
+  isAdmin,
+  onEdit,
+}: {
+  site: Site;
+  gapReason: string | null;
+  isAdmin: boolean;
+  onEdit: () => void;
+}) {
   const queryClient = useQueryClient();
   const [confirming, setConfirming] = useState(false);
   const remove = useMutation({
@@ -110,6 +123,11 @@ function SiteRow({ site, isAdmin, onEdit }: { site: Site; isAdmin: boolean; onEd
       </span>
       <div className="min-w-0 flex-1">
         <h3 className="truncate font-medium">{site.name}</h3>
+        {gapReason && (
+          <p className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-review-soft px-2 py-0.5 text-xs font-medium text-review">
+            <MapPinOff className="size-3.5" aria-hidden /> Gap: {gapReason}
+          </p>
+        )}
         <p className="mt-0.5 text-sm text-muted-foreground tabular">
           {site.lat.toFixed(4)}, {site.lng.toFixed(4)} · radius {formatRadius(site.radiusM)}
         </p>

@@ -175,6 +175,29 @@ describe('sites', () => {
     await other.agent.put('/api/sites/not-a-uuid').send(rampur).expect(404);
   });
 
+  it('counts each site’s own evidence', async () => {
+    const { admin, projectId, orgId } = await setup();
+    const { body: a } = await admin.agent.post(`/api/projects/${projectId}/sites`).send(rampur);
+    await admin.agent
+      .post(`/api/projects/${projectId}/sites`)
+      .send({ ...rampur, name: 'Village Sohna', lat: 28.25 });
+    await createAsset(db, { id: projectId, orgId }, { ...goodMetadata, siteId: a.id });
+    await createAsset(db, { id: projectId, orgId }, { ...goodMetadata, siteId: a.id });
+    await createAsset(db, { id: projectId, orgId }, goodMetadata);
+
+    const { sites } = siteListResponse.parse(
+      (await admin.agent.get(`/api/projects/${projectId}/sites`).expect(200)).body,
+    );
+    expect(sites.map((s) => [s.name, s.assetCount])).toEqual([
+      ['Village Rampur', 2],
+      ['Village Sohna', 0],
+    ]);
+    const edited = siteSchema.parse(
+      (await admin.agent.put(`/api/sites/${a.id}`).send(rampur).expect(200)).body,
+    );
+    expect(edited.assetCount).toBe(2);
+  });
+
   it('re-scores evidence when a site moves', async () => {
     const { admin, projectId, orgId } = await setup();
     const { body: site } = await admin.agent.post(`/api/projects/${projectId}/sites`).send(rampur);

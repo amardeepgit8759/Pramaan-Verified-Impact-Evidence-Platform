@@ -6,6 +6,7 @@ import type { Db } from '../db/client.js';
 import { assets, projects, reviews } from '../db/schema.js';
 import { HttpError } from '../http-error.js';
 import { recordEvent } from './events.js';
+import { refreshGaps } from './gaps.js';
 
 /**
  * An admin's decision on evidence that isn't verified. Appends to the review log (never
@@ -53,4 +54,5 @@ export async function reviewAsset(db: Db, user: SessionUser, assetId: unknown, i
       actorName: user.name,
     });
   });
+  await refreshGaps(db, user.orgId);
 }

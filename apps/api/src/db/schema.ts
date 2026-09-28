@@ -122,6 +122,11 @@ export const sites = pgTable(
     lat: doublePrecision('lat').notNull(),
     lng: doublePrecision('lng').notNull(),
     radiusM: integer('radius_m').notNull(),
+    /**
+     * Last known documentation-gap state. Gaps are computed live on every read; this only
+     * lets us notice when a site enters or leaves a gap and emit `site.gap_changed`.
+     */
+    gap: boolean('gap'),
     createdAt: createdAt(),
   },
   (t) => [index('sites_project_id_idx').on(t.projectId)],

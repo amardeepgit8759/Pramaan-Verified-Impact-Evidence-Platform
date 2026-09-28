@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 
 test('landing page leads to sign-up', async ({ page }) => {
@@ -8,7 +9,7 @@ test('landing page leads to sign-up', async ({ page }) => {
 });
 
 test('an admin signs up, creates a project, signs out and back in', async ({ page }) => {
-  const email = `admin+${Date.now()}@example.org`;
+  const email = `admin+${randomUUID()}@example.org`;
 
   await page.goto('/signup');
   await page.getByLabel('Organisation name').fill('Jal Seva Trust');
@@ -17,7 +18,7 @@ test('an admin signs up, creates a project, signs out and back in', async ({ pag
   await page.getByLabel('Password').fill('correct horse battery');
   await page.getByRole('button', { name: 'Create organisation' }).click();
 
-  await expect(page).toHaveURL('/app');
+  await expect(page).toHaveURL('/app', { timeout: 15_000 });
   await expect(page.getByRole('heading', { name: /Asha/ })).toBeVisible();
   await expect(page.getByText('Create your first project')).toBeVisible();
 

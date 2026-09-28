@@ -6,6 +6,7 @@ import type { Db } from '../db/client.js';
 import { assets, projects, sites } from '../db/schema.js';
 import { requireProject } from '../services/access.js';
 import { assetsMatchingProject, rescoreAssets } from '../services/scoring.js';
+import { refreshGaps } from '../services/gaps.js';
 import { getOrgSettings } from '../services/settings.js';
 
 /** Project rows with live counts, computed in one query. */
@@ -99,6 +100,8 @@ export function projectsRouter(db: Db) {
         { actor },
       );
     }
+    // Only active projects have gaps, so a status change can open or close them.
+    await refreshGaps(db, orgId);
     res.json(await summary(orgId, before.id));
   });
 

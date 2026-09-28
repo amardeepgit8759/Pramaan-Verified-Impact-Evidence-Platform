@@ -23,5 +23,7 @@ export default defineConfig({
     environment: 'jsdom',
     include: ['src/**/*.test.{ts,tsx}'],
     setupFiles: ['src/test-setup.ts'],
+    // Route tests render the whole app in jsdom; under a parallel run they can exceed 5 s.
+    testTimeout: 15_000,
   },
 });

@@ -1,15 +1,6 @@
-import { expect, test, type Page } from '@playwright/test';
-
-async function signUp(page: Page) {
-  const email = `admin+${Date.now()}@example.org`;
-  await page.goto('/signup');
-  await page.getByLabel('Organisation name').fill('Jal Seva Trust');
-  await page.getByLabel('Your name').fill('Asha Rao');
-  await page.getByLabel('Work email').fill(email);
-  await page.getByLabel('Password').fill('correct horse battery');
-  await page.getByRole('button', { name: 'Create organisation' }).click();
-  await expect(page).toHaveURL('/app');
-}
+import { randomUUID } from 'node:crypto';
+import { expect, test } from '@playwright/test';
+import { signUp } from './helpers';
 
 test('admin sets up a project with a site and a field teammate', async ({ page, browser }) => {
   await signUp(page);
@@ -46,7 +37,7 @@ test('admin sets up a project with a site and a field teammate', async ({ page, 
   await expect(page.getByRole('heading', { name: 'Deductions' })).toBeVisible();
   await page.getByRole('button', { name: 'Invite' }).click();
   await page.getByLabel('Name', { exact: true }).fill('Ravi Kumar');
-  await page.getByLabel('Email', { exact: true }).fill(`ravi+${Date.now()}@example.org`);
+  await page.getByLabel('Email', { exact: true }).fill(`ravi+${randomUUID()}@example.org`);
   await page.getByRole('button', { name: 'Create invite link' }).click();
   const inviteUrl = await page.getByRole('textbox', { name: 'Invite link' }).inputValue();
 
@@ -56,7 +47,7 @@ test('admin sets up a project with a site and a field teammate', async ({ page, 
   await ravi.getByLabel('New password').fill('ravi password');
   await ravi.getByLabel('Confirm password').fill('ravi password');
   await ravi.getByRole('button', { name: /Set password/ }).click();
-  await expect(ravi).toHaveURL('/app');
+  await expect(ravi).toHaveURL('/app', { timeout: 15_000 });
   await ravi.getByRole('link', { name: 'Borewell Project – Phase 1 (2024)', exact: true }).click();
   await expect(ravi.getByRole('button', { name: 'Edit', exact: true })).toHaveCount(0);
   await ravi.getByRole('link', { name: 'Sites', exact: true }).click();

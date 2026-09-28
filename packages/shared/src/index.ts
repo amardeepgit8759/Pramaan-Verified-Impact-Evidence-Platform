@@ -21,3 +21,4 @@ export * from './search.js';
 export * from './activity.js';
 export * from './schemas/live.js';
 export * from './media.js';
+export * from './schemas/search.js';

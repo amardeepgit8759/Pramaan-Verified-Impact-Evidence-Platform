@@ -1,20 +1,12 @@
-import { siteGapStatus, type Metrics, type ProjectStatus } from '@pramaan/shared';
+import type { Metrics } from '@pramaan/shared';
 import { sql } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
-import { getOrgSettings } from './settings.js';
+import { computeSiteEvidence } from './gaps.js';
 
 /** Days in the uploads-per-day and bands-over-time series (including today). */
 const SERIES_DAYS = 30;
 /** Window for the "flagged recently" KPI. */
 const RECENT_DAYS = 7;
-
-/**
- * "Counts as verified evidence": verified and not rejected, or approved by an admin.
- * Mirrors isReportEligible in packages/shared.
- */
-const ELIGIBLE = sql.raw(
-  `((a.trust_band = 'verified' and a.review_decision is distinct from 'reject') or a.review_decision = 'approve')`,
-);
 
 /** Everything on the dashboard (or one project's overview), computed live in SQL. */
 export async function computeMetrics(
@@ -97,31 +89,7 @@ export async function computeMetrics(
     `)
   ).rows;
 
-  const perSite = (
-    await db.execute<{
-      site_id: string;
-      site_name: string;
-      project_id: string;
-      project_name: string;
-      project_status: ProjectStatus;
-      count: number;
-      verified: number;
-      last_verified: string | null;
-    }>(sql`
-      select
-        s.id as site_id, s.name as site_name,
-        p.id as project_id, p.name as project_name, p.status as project_status,
-        count(a.id)::int as count,
-        count(a.id) filter (where ${ELIGIBLE})::int as verified,
-        max(coalesce(a.captured_at, a.uploaded_at)) filter (where ${ELIGIBLE}) as last_verified
-      from sites s
-      join projects p on p.id = s.project_id
-      left join assets a on a.site_id = s.id
-      where ${projectScope}
-      group by s.id, p.id
-      order by count(a.id) desc, s.name
-    `)
-  ).rows;
+  const perSite = await computeSiteEvidence(db, orgId, projectId, now);
 
   const [reports] = (
     await db.execute<{ count: number }>(sql`
@@ -130,28 +98,6 @@ export async function computeMetrics(
       where ${projectScope} and r.status = 'ready'
     `)
   ).rows as [{ count: number }];
-
-  const { gapDays } = await getOrgSettings(db, orgId);
-  const gapSites = perSite.flatMap((s) => {
-    const status = siteGapStatus({
-      projectStatus: s.project_status,
-      lastVerifiedAt: s.last_verified ? new Date(s.last_verified) : null,
-      gapDays,
-      now,
-    });
-    return status.gap
-      ? [
-          {
-            siteId: s.site_id,
-            siteName: s.site_name,
-            projectId: s.project_id,
-            projectName: s.project_name,
-            daysSinceVerified: status.daysSinceVerified,
-            reason: status.reason,
-          },
-        ]
-      : [];
-  });
 
   return {
     totalAssets: totals.total,
@@ -168,13 +114,22 @@ export async function computeMetrics(
       flagged: d.flagged,
     })),
     assetsPerSite: perSite.map((s) => ({
-      siteId: s.site_id,
-      siteName: s.site_name,
-      projectId: s.project_id,
+      siteId: s.siteId,
+      siteName: s.siteName,
+      projectId: s.projectId,
       count: s.count,
       verified: s.verified,
     })),
-    gapSites,
+    gapSites: perSite
+      .filter((s) => s.status.gap)
+      .map((s) => ({
+        siteId: s.siteId,
+        siteName: s.siteName,
+        projectId: s.projectId,
+        projectName: s.projectName,
+        daysSinceVerified: s.status.daysSinceVerified,
+        reason: s.status.reason,
+      })),
     reportsGenerated: reports.count,
   };
 }

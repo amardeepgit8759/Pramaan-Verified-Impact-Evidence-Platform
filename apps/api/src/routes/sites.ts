@@ -1,20 +1,25 @@
 import { siteInput, type Site } from '@pramaan/shared';
 import { asc, eq, getTableColumns, sql } from 'drizzle-orm';
 import { Router, type Request } from 'express';
+import { z } from 'zod';
 import { currentUser, requireAuth, requireRole } from '../auth/middleware.js';
 import type { Db } from '../db/client.js';
 import { assets, sites } from '../db/schema.js';
 import { requireProject, requireSite } from '../services/access.js';
+import { compareForSite } from '../services/compare.js';
+import type { MediaStore } from '../services/media.js';
 import { rescoreAssets } from '../services/scoring.js';
+import { refreshGaps } from '../services/gaps.js';
 import { getOrgSettings } from '../services/settings.js';
 
+// A join rather than a correlated subquery: Drizzle leaves columns unqualified in a
+// single-table select, so `${sites.id}` inside a subquery would resolve to assets.id.
 function siteRows(db: Db) {
   return db
-    .select({
-      ...getTableColumns(sites),
-      assetCount: sql<number>`(select count(*) from ${assets} where ${assets.siteId} = ${sites.id})::int`,
-    })
-    .from(sites);
+    .select({ ...getTableColumns(sites), assetCount: sql<number>`count(${assets.id})::int` })
+    .from(sites)
+    .leftJoin(assets, eq(assets.siteId, sites.id))
+    .groupBy(sites.id);
 }
 
 type SiteRow = Awaited<ReturnType<typeof siteRows>>[number];
@@ -59,16 +64,27 @@ export function projectSitesRouter(db: Db) {
       .insert(sites)
       .values({ ...input, projectId: project.id })
       .returning({ id: sites.id });
+    await refreshGaps(db, currentUser(req).orgId);
     res.status(201).json(await loadSite(db, created!.id));
   });
 
   return router;
 }
 
-/** `/api/sites/:id`: edit and delete. Both re-score the site's evidence. */
-export function sitesRouter(db: Db) {
+/** `/api/sites/:id`: edit and delete (both re-score the site's evidence), and compare. */
+export function sitesRouter(db: Db, media: MediaStore) {
   const router = Router();
   router.use(requireAuth);
+
+  /** Before/after for a site: `?before=&after=` asset ids, or the automatic suggestion. */
+  router.get('/:id/compare', async (req, res) => {
+    const { orgId } = currentUser(req);
+    const site = await requireSite(db, orgId, req.params.id);
+    const q = z
+      .object({ before: z.uuid().optional(), after: z.uuid().optional() })
+      .parse(req.query);
+    res.json(await compareForSite(db, media, orgId, site.id, q));
+  });
 
   router.put('/:id', requireRole('admin'), async (req, res) => {
     const actor = currentUser(req);

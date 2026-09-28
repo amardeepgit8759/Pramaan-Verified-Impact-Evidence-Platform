@@ -14,6 +14,7 @@ import piexif from 'piexifjs';
 import type { CloudinaryResource, MediaStore } from '../../src/services/media.js';
 
 const UPLOAD_PATH = '/__e2e/cloudinary/upload';
+const COMPOSITE_PATH = '/__e2e/cloudinary/composite';
 
 /** 8x8 average hash of a JPEG, as 16 hex digits (the shape Cloudinary's pHash has). */
 function averageHash(file: Buffer): string | null {
@@ -65,6 +66,25 @@ function readExif(file: Buffer): Record<string, string> {
   }
 }
 
+/** Two JPEGs scaled (nearest neighbour) to 400×300 and placed side by side. */
+function sideBySide(left: Buffer, right: Buffer): Buffer {
+  const [w, h] = [400, 300];
+  const out = Buffer.alloc(w * 2 * h * 4);
+  [left, right].forEach((file, half) => {
+    const img = jpeg.decode(file, { useTArray: true });
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const sx = Math.floor((x * img.width) / w);
+        const sy = Math.floor((y * img.height) / h);
+        const src = (sy * img.width + sx) * 4;
+        const dst = (y * w * 2 + half * w + x) * 4;
+        for (let c = 0; c < 4; c++) out[dst + c] = img.data[src + c]!;
+      }
+    }
+  });
+  return jpeg.encode({ data: out, width: w * 2, height: h }, 85).data;
+}
+
 export class FakeCloudinary implements MediaStore {
   private readonly resources = new Map<string, CloudinaryResource>();
   private readonly files = new Map<string, Buffer>();
@@ -100,6 +120,15 @@ export class FakeCloudinary implements MediaStore {
         metadata: readExif(file),
       });
       res.json({ public_id: publicId, resource_type: 'image' });
+    });
+    router.get(COMPOSITE_PATH, (req, res) => {
+      const a = this.files.get(String(req.query.before));
+      const b = this.files.get(String(req.query.after));
+      if (!a || !b) {
+        res.status(404).end();
+        return;
+      }
+      res.type('image/jpeg').send(sideBySide(a, b));
     });
     router.get('/__e2e/cloudinary/file/:id', (req, res) => {
       const file = this.files.get(decodeURIComponent(req.params.id));
@@ -138,6 +167,11 @@ export class FakeCloudinary implements MediaStore {
   }
 
   async writeBack() {}
+
+  compositeUrl(before: { publicId: string }, after: { publicId: string }) {
+    const qs = new URLSearchParams({ before: before.publicId, after: after.publicId });
+    return `${this.baseUrl}${COMPOSITE_PATH}?${qs}`;
+  }
 
   thumbnailUrl(publicId: string) {
     return this.resources.get(publicId)?.secureUrl ?? '';

@@ -14,6 +14,7 @@ import { assetsRouter, projectAssetsRouter, uploadsRouter } from './routes/asset
 import { authRouter } from './routes/auth.js';
 import { healthRouter } from './routes/health.js';
 import { orgRouter } from './routes/org.js';
+import { searchRouter } from './routes/search.js';
 import { settingsRouter } from './routes/settings.js';
 import { projectSitesRouter, sitesRouter } from './routes/sites.js';
 import { projectsRouter } from './routes/projects.js';
@@ -114,7 +115,8 @@ export function createApp({ env, db, logger, media, ai, live }: AppDeps) {
   api.use('/uploads', uploadsRouter(ingest));
   api.use('/assets', assetsRouter(ingest));
   api.use('/projects', projectsRouter(db));
-  api.use('/sites', sitesRouter(db));
+  api.use('/sites', sitesRouter(db, media));
+  api.use('/search', searchRouter({ db, ai, media, logger }));
   api.use('/settings', settingsRouter(db));
   api.use('/org', orgRouter(db));
   api.use(liveRouter(db, live, media));

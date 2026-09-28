@@ -1,6 +1,7 @@
 import { createBrowserRouter, type RouteObject } from 'react-router';
 import { AppLayout } from './routes/app/app-layout';
 import { DashboardPage } from './routes/app/dashboard';
+import { ProjectCompare } from './routes/app/project/compare';
 import { ProjectEvidence } from './routes/app/project/evidence';
 import { ProjectMap } from './routes/app/project/project-map';
 import { ProjectReview } from './routes/app/project/review-queue';
@@ -9,6 +10,7 @@ import { ProjectOverview } from './routes/app/project/overview';
 import { ProjectLayout } from './routes/app/project/project-layout';
 import { ProjectSites } from './routes/app/project/sites';
 import { ProjectsPage } from './routes/app/projects';
+import { SearchPage } from './routes/app/search-page';
 import { SettingsPage } from './routes/app/settings/settings-page';
 import { GuestOnly } from './routes/auth/guest-only';
 import { SetPasswordPage } from './routes/auth/set-password';
@@ -44,10 +46,12 @@ export const routes: RouteObject[] = [
               { path: 'evidence', element: <ProjectEvidence /> },
               { path: 'map', element: <ProjectMap /> },
               { path: 'timeline', element: <ProjectTimeline /> },
+              { path: 'compare', element: <ProjectCompare /> },
               { path: 'review', element: <ProjectReview /> },
               { path: 'sites', element: <ProjectSites /> },
             ],
           },
+          { path: 'search', element: <SearchPage /> },
           { path: 'settings', element: <SettingsPage /> },
           { path: '*', element: <AppNotFoundPage /> },
         ],

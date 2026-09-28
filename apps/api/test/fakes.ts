@@ -68,6 +68,13 @@ export class FakeMediaStore implements MediaStore {
     return `https://res.cloudinary.com/test/image/upload/w_1600/${publicId}`;
   }
 
+  compositeUrl(
+    before: { publicId: string; date: string },
+    after: { publicId: string; date: string },
+  ) {
+    return `https://res.cloudinary.com/test/image/upload/composite/${before.publicId}|${after.publicId}|${before.date}|${after.date}`;
+  }
+
   async destroy(publicId: string) {
     this.resources.delete(publicId);
   }
@@ -88,9 +95,15 @@ export class FakeAiClient implements AiClient {
   async embed(text: string) {
     this.embeddedTexts.push(text);
     if (this.embedError) throw this.embedError;
-    // Deterministic, unit-length vector derived from the text.
-    const v = Array.from({ length: EMBEDDING_DIMENSIONS }, (_, i) => Math.sin(i + text.length));
-    const norm = Math.hypot(...v);
+    // Bag-of-words: each word adds to one hashed dimension, so texts that share words point
+    // the same way. Enough to test ranking; the live test checks real semantic quality.
+    const v = new Array<number>(EMBEDDING_DIMENSIONS).fill(0);
+    for (const word of text.toLowerCase().match(/[a-z0-9]+/g) ?? []) {
+      let h = 2166136261;
+      for (const ch of word) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+      v[h % EMBEDDING_DIMENSIONS]! += 1;
+    }
+    const norm = Math.hypot(...v) || 1;
     return v.map((x) => x / norm);
   }
 }

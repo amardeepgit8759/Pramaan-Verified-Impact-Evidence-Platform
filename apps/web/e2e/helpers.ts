@@ -1,19 +1,21 @@
+import { randomUUID } from 'node:crypto';
 import { expect, type Page } from '@playwright/test';
 // Test-only image generator from the API package: a real JPEG with EXIF.
 import { makeJpegWithExif } from '../../api/test/sample-image';
 
-let counter = 0;
+// Password hashing is deliberately slow (scrypt), and every worker signs up at once.
+const AUTH_TIMEOUT = 15_000;
 
 /** Sign up a fresh organisation in `page`; returns the admin's email. */
 export async function signUp(page: Page, orgName = 'Jal Seva Trust') {
-  const email = `admin+${Date.now()}-${++counter}@example.org`;
+  const email = `admin+${randomUUID()}@example.org`;
   await page.goto('/signup');
   await page.getByLabel('Organisation name').fill(orgName);
   await page.getByLabel('Your name').fill('Asha Rao');
   await page.getByLabel('Work email').fill(email);
   await page.getByLabel('Password').fill('correct horse battery');
   await page.getByRole('button', { name: 'Create organisation' }).click();
-  await expect(page).toHaveURL('/app');
+  await expect(page).toHaveURL('/app', { timeout: AUTH_TIMEOUT });
   return email;
 }
 
@@ -22,7 +24,7 @@ export async function signIn(page: Page, email: string) {
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password').fill('correct horse battery');
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page).toHaveURL('/app');
+  await expect(page).toHaveURL('/app', { timeout: AUTH_TIMEOUT });
 }
 
 /** Create a project with one site through the API (the UI flow is covered elsewhere). */

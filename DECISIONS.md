@@ -320,3 +320,43 @@ structured-output, image and embedding docs, on 2026-09-27/28.
 - **"60.00″" is a valid EXIF seconds value.** ExifTool prints seconds to two decimals, so a
   camera's 59.996″ is written as 60.00″. The parser used to reject it and treat the photo as
   having no GPS. It now accepts up to 60 seconds and still rejects anything above.
+
+## Phase 5: search, compare, gaps (2026-09-28)
+
+- **Hybrid search.** Semantic ranking comes first (pgvector cosine, `1 − distance` shown
+  as "N% match"). Keyword matches on tags and captions are appended afterwards, never
+  mixed in, because keyword and cosine scores aren't comparable. The keyword pass is what
+  finds evidence whose embedding failed at upload. If the query can't be embedded,
+  keywords answer it alone and the response says `mode: "keyword"`, so the UI can be
+  honest about it.
+- **Search is organisation-wide** with optional project, band and capture-date filters,
+  because funders ask across projects ("show me every borewell"). Result counts are capped
+  (24 by default, at most 60) rather than paged, since the best matches come first.
+- **Example searches are the organisation's own top tags**, not a hard-coded list, so the
+  page never suggests something that returns nothing.
+- **Embedding text** is the caption, tags, project, site and capture day joined into one
+  sentence, so a query like "Rampur borewell 2024" can match on place and time as well as
+  content.
+- **Tests use a bag-of-words fake embedder** (each word hashed to a dimension). It's
+  deterministic and enough to test ranking, filtering and fallbacks against real pgvector.
+  Real semantic quality ("hand pump" ≈ "borewell", not "classroom") is covered by the live
+  Gemini test.
+- **Compare suggests the site's earliest and latest report-eligible photos.** Only
+  eligible photos are suggested, so the default pair is always one a funder can trust.
+  Any image from the site can still be picked by hand, and the picker shows each photo's
+  band and score.
+- **The side-by-side image is a Cloudinary transformation, not a server render.** The
+  before photo is padded to 1600×600, the after photo (at 800×600, `g_auto`) is overlaid on
+  the right, and "Before · date" and "After · date" labels are added as text layers. It's
+  built from public ids stored in the database, never from client input, and the
+  CDN caches it. Labels use the unambiguous "1 Feb 2024" format, which also avoids
+  commas, which text layers would need to escape.
+- **Gap state is stored** (`sites.gap`), not only computed on read, so a change can be
+  announced exactly once (`site.gap_changed`) rather than on every page load. It's
+  recomputed after anything that can change it, and hourly for the passage of time
+  (`GAP_REFRESH_MS`). A site's first computation is quiet: creating a site doesn't raise
+  an alert that it has no evidence yet, although the badge shows it.
+- **Gap events only toast when a gap opens.** A gap closing just updates the lists.
+- **Site file counts use a join, not a correlated subquery.** Drizzle leaves column names
+  unqualified in a single-table select, so a subquery that refers to the outer table's
+  column silently binds to its own. Aggregates over related tables are written as joins.

@@ -17,7 +17,7 @@ import { queryKeys } from './queries';
  */
 export function keysFor(event: LiveEvent): QueryKey[] {
   const payload = eventPayloadSchema.parse(event.payload);
-  const common: QueryKey[] = [['metrics'], ['events']];
+  const common: QueryKey[] = [['metrics'], ['events'], ['search']];
   switch (event.type) {
     case 'asset.created':
     case 'asset.rescored':

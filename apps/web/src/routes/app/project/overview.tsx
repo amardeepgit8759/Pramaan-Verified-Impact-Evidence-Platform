@@ -1,12 +1,16 @@
+import { useQuery } from '@tanstack/react-query';
 import { Images, MapPin } from 'lucide-react';
 import { Link } from 'react-router';
 import { EmptyState } from '@/components/empty-state';
 import { TrustBar } from '@/components/trust-bar';
 import { Button } from '@/components/ui/button';
+import { metricsQuery } from '@/lib/queries';
+import { GapAlerts } from '../dashboard-panels';
 import { useProject } from './project-layout';
 
 export function ProjectOverview() {
   const { project, isAdmin } = useProject();
+  const { data: metrics } = useQuery(metricsQuery(project.id));
   const total = project.assetCount;
   const verifiedShare = total > 0 ? Math.round((project.bands.verified / total) * 100) : null;
 
@@ -66,6 +70,8 @@ export function ProjectOverview() {
           for copies, location and dates.
         </EmptyState>
       )}
+
+      {metrics && metrics.gapSites.length > 0 && <GapAlerts gaps={metrics.gapSites} />}
 
       {project.description && (
         <section className="rounded-2xl border bg-card p-6 shadow-soft">

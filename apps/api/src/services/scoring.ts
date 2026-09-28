@@ -12,6 +12,7 @@ import type { Db } from '../db/client.js';
 import { assets, projects, sites, trustChecks } from '../db/schema.js';
 import { findDuplicateCandidates } from './duplicates.js';
 import { recordEvents } from './events.js';
+import { refreshGaps } from './gaps.js';
 
 /** Project dates are whole days; the scorer works in UTC midnights. */
 export const dayToDate = (day: string) => new Date(`${day}T00:00:00Z`);
@@ -186,6 +187,7 @@ export async function rescoreAssets(
       );
     });
   }
+  if (!dryRun) await refreshGaps(db, orgId);
   return summarize(scored);
 }
 

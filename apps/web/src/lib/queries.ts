@@ -1,6 +1,9 @@
 import {
   assetDetailSchema,
   assetListResponse,
+  compareResponse,
+  searchResponse,
+  searchSuggestionsResponse,
   eventListResponse,
   metricsSchema,
   healthResponseSchema,
@@ -31,6 +34,10 @@ export const queryKeys = {
   metrics: (projectId?: string) => ['metrics', projectId ?? 'all'] as const,
   events: (projectId?: string) => ['events', projectId ?? 'all'] as const,
   reviewQueue: (projectId?: string) => ['review-queue', projectId ?? 'all'] as const,
+  search: (params: Record<string, string>) => ['search', params] as const,
+  searchSuggestions: ['search', 'suggestions'] as const,
+  compare: (siteId: string, picks: { before?: string; after?: string }) =>
+    ['projects', 'compare', siteId, picks] as const,
   settings: ['settings'] as const,
   team: ['team'] as const,
 };
@@ -129,5 +136,33 @@ export const reviewQueueQuery = (projectId?: string, limit = 5) =>
     queryFn: async ({ signal }) => {
       const qs = new URLSearchParams({ limit: String(limit), ...(projectId && { projectId }) });
       return (await api.get(`/review-queue?${qs}`, assetListResponse, { signal })).assets;
+    },
+  });
+
+export const searchQueryOptions = (params: Record<string, string>) =>
+  queryOptions({
+    queryKey: queryKeys.search(params),
+    queryFn: ({ signal }) =>
+      api.get(`/search?${new URLSearchParams(params)}`, searchResponse, { signal }),
+    enabled: Boolean(params.q?.trim()),
+  });
+
+export const searchSuggestionsQuery = queryOptions({
+  queryKey: queryKeys.searchSuggestions,
+  queryFn: async ({ signal }) =>
+    (await api.get('/search/suggestions', searchSuggestionsResponse, { signal })).tags,
+  staleTime: 5 * 60_000,
+});
+
+export const compareQuery = (siteId: string, picks: { before?: string; after?: string }) =>
+  queryOptions({
+    queryKey: queryKeys.compare(siteId, picks),
+    queryFn: ({ signal }) => {
+      const qs = new URLSearchParams(
+        Object.entries(picks).filter((e): e is [string, string] => Boolean(e[1])),
+      );
+      return api.get(`/sites/${siteId}/compare${qs.size ? `?${qs}` : ''}`, compareResponse, {
+        signal,
+      });
     },
   });

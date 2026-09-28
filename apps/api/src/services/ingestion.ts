@@ -18,6 +18,7 @@ import type { Logger } from '../logger.js';
 import { requireProject } from './access.js';
 import type { AiClient } from './ai.js';
 import { findDuplicateCandidates } from './duplicates.js';
+import { refreshGaps } from './gaps.js';
 import { recordEvent } from './events.js';
 import type { CloudinaryResource, MediaStore } from './media.js';
 import { dayToDate, rescoreAssets } from './scoring.js';
@@ -273,5 +274,6 @@ export async function confirmUpload(
     );
   }
 
+  await refreshGaps(db, user.orgId);
   return { assetId, created: true };
 }

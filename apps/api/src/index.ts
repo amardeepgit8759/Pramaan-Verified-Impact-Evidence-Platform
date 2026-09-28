@@ -4,6 +4,7 @@ import { runMigrations } from './db/migrate.js';
 import { EnvError, loadEnv } from './env.js';
 import { createLogger } from './logger.js';
 import { GeminiAiClient } from './services/ai.js';
+import { refreshAllGaps } from './services/gaps.js';
 import { LiveHub } from './services/live.js';
 import { CloudinaryMediaStore } from './services/media.js';
 
@@ -30,6 +31,13 @@ const media = new CloudinaryMediaStore(env, logger);
 const ai = new GeminiAiClient(env);
 const live = new LiveHub(db, logger);
 await live.init();
+
+/** Gaps open with the passage of time, not only on writes. */
+const GAP_REFRESH_MS = 60 * 60_000;
+const gapTimer = setInterval(() => {
+  void refreshAllGaps(db, logger).then(() => live.poke());
+}, GAP_REFRESH_MS);
+gapTimer.unref();
 
 const server = createApp({ env, db, logger, media, ai, live }).listen(env.PORT, () => {
   logger.info(`Pramaan API listening on http://localhost:${env.PORT}`);

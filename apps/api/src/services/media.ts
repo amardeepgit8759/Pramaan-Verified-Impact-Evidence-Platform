@@ -22,6 +22,15 @@ export interface CloudinaryResource {
   metadata: unknown;
 }
 
+export interface CompositePart {
+  publicId: string;
+  /** Shown in the label, e.g. "10 Mar 2024". */
+  date: string;
+}
+
+/** Each half of a before/after composite. */
+const HALF = { width: 800, height: 600 } as const;
+
 export class TaggingUnavailableError extends Error {
   override name = 'TaggingUnavailableError';
 }
@@ -47,6 +56,8 @@ export interface MediaStore {
   /** `aspect` is width/height; thumbnails are cropped around the subject to it. */
   thumbnailUrl(publicId: string, resourceType: ResourceType, aspect?: number): string;
   previewUrl(publicId: string, resourceType: ResourceType): string;
+  /** A labelled side-by-side before/after image of two photos, built by the CDN. */
+  compositeUrl(before: CompositePart, after: CompositePart): string;
   destroy(publicId: string, resourceType: ResourceType): Promise<void>;
 }
 
@@ -230,6 +241,43 @@ export class CloudinaryMediaStore implements MediaStore {
         ...(resourceType === 'video' ? [{ start_offset: 'auto' }] : []),
         { width: 1600, crop: 'limit' },
         { fetch_format: 'auto', quality: 'auto' },
+      ],
+    });
+  }
+
+  /**
+   * Before on the left, after on the right, each cropped around its subject, with a date
+   * label on each. Built as one Cloudinary transformation, so it can be downloaded or
+   * embedded in a report without storing a new file.
+   */
+  compositeUrl(before: CompositePart, after: CompositePart) {
+    const label = (text: string, gravity: 'north_west' | 'north_east') => [
+      {
+        overlay: { font_family: 'Arial', font_size: 30, font_weight: 'bold', text },
+        color: 'white',
+        background: 'rgb:1b1d33',
+        border: '12px_solid_rgb:1b1d33',
+      },
+      { flags: 'layer_apply', gravity, x: 24, y: 24 },
+    ];
+    return cloudinary.url(before.publicId, {
+      secure: true,
+      format: 'jpg',
+      transformation: [
+        { ...HALF, crop: 'fill', gravity: 'auto' },
+        {
+          width: HALF.width * 2,
+          height: HALF.height,
+          crop: 'pad',
+          gravity: 'west',
+          background: 'white',
+        },
+        // Folder slashes in an overlay's public id are written as colons.
+        { overlay: after.publicId.replaceAll('/', ':'), ...HALF, crop: 'fill', gravity: 'auto' },
+        { flags: 'layer_apply', gravity: 'east' },
+        ...label(`Before  ${before.date}`, 'north_west'),
+        ...label(`After  ${after.date}`, 'north_east'),
+        { quality: 'auto' },
       ],
     });
   }

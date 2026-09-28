@@ -73,6 +73,20 @@ describe('Cloudinary (live)', () => {
     expect(res.headers.get('content-type')).toMatch(/^image\//);
   });
 
+  it('renders the labelled before/after composite from a folder overlay', async () => {
+    const after = await browserUpload(
+      makeJpegWithExif({ lat: 28.47, lng: 77.0301, capturedAt: '2026:09:26 09:00:00', seed: 9 }),
+      'live-after.jpg',
+    );
+    const url = media.compositeUrl(
+      { publicId: uploaded[0]!, date: '1 Feb 2024' },
+      { publicId: after, date: '26 Sep 2026' },
+    );
+    const res = await fetch(url);
+    expect(res.ok, `${res.status} ${res.headers.get('x-cld-error') ?? ''}`).toBe(true);
+    expect(res.headers.get('content-type')).toBe('image/jpeg');
+  });
+
   it('writes Pramaan context back to the asset', async () => {
     await media.writeBack(uploaded[0]!, 'image', { pramaan_trust_score: '100' });
   });
@@ -88,5 +102,18 @@ describe('Gemini (live)', () => {
   it('embeds text at the stored dimension', async () => {
     const vector = await ai.embed('Women collecting water from a hand pump');
     expect(vector).toHaveLength(EMBEDDING_DIMENSIONS);
+  });
+
+  it('ranks by meaning, not just shared words', async () => {
+    const cosine = (a: number[], b: number[]) => a.reduce((s, x, i) => s + x * b[i]!, 0);
+    const docs = {
+      pump: await ai.embed('Women collecting water from a hand pump in a village'),
+      classroom: await ai.embed('Children reading books in a school classroom'),
+      solar: await ai.embed('Solar panels installed on a rooftop'),
+    };
+    // No word in common with the pump caption, but the same meaning.
+    const query = await ai.embed('drinking water borewell');
+    const ranked = Object.entries(docs).sort(([, a], [, b]) => cosine(query, b) - cosine(query, a));
+    expect(ranked[0]![0]).toBe('pump');
   });
 });

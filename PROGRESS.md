@@ -278,3 +278,78 @@ arrived; it's listed under the phase it belongs to.
 
 - The Map and Timeline tabs load every asset in the project in one request. That's fine
   at hackathon scale; paging comes with Phase 7 hardening if needed.
+
+## Phase 5 — Search, before/after compare, gap alerts ✅
+
+### Built
+
+- **Semantic search** (`GET /api/search`, page at `/app/search`, in the main nav). The
+  query is embedded with the same Gemini model as the evidence and ranked by pgvector
+  cosine distance. Filters: project, Trust band, capture-date range. Keyword matches on
+  tags and captions are added after the semantic results, so assets whose embedding failed
+  can still be found. If the query itself can't be embedded, search runs on keywords alone
+  and the page says so. Each result shows "N% match" or "Keyword match". Example searches
+  come from the organisation's own most-used tags (`GET /api/search/suggestions`). The
+  query and filters live in the URL, and a result opens the same asset drawer as every
+  other view.
+- **Before/after compare** (project "Compare" tab, `GET /api/sites/:id/compare`). By default
+  it picks the site's earliest and latest report-eligible photos, and you can choose any
+  two photos from the site instead. A draggable divider sits on a range input, so it
+  works from the keyboard and with screen readers. A downloadable side-by-side image is
+  built by Cloudinary from the stored public ids: the before photo is padded to double
+  width, the after photo is overlaid on the right, and both carry date labels.
+- **Documentation-gap alerts.** Each site's gap state is stored (`sites.gap`, migration 0003) and recomputed after uploads, reviews, settings changes (including the gap
+  window), site creation and project edits, plus once an hour for time passing. A change
+  emits `site.gap_changed`, which refreshes the dashboard live and shows a warning toast
+  when a gap opens. Gaps appear on the dashboard, on the project overview ("Documentation
+  gaps") and as a badge on the Sites tab.
+
+### Tested
+
+- API (13 new tests in `phase5.test.ts`):
+  - **Search:** "water pump" returns the pump photo first, with scores in descending
+    order; the filters work; search falls back to keywords when embedding is down; assets
+    whose embedding failed are still found; suggestions return the org's top tags; empty
+    queries are rejected and other organisations are kept out.
+  - **Compare:** the suggested pair is the earliest and latest photo, with a composite
+    URL; explicit picks work, and photos from another site get a 404; a pair needs two
+    eligible photos.
+  - **Gaps:** a new site's gap is recorded without an event, then evidence closes it with
+    an event; time passing opens a gap; changing the gap window re-evaluates it; a project
+    that is no longer active has no gaps.
+- Web (6 new tests): search results with match scores and URL state, the keyword-mode
+  notice, the no-results empty state, the compare slider's keyboard value, the Compare
+  tab's suggested pair and composite link, and the Sites tab's gap badge.
+- **e2e (`phase5.spec.ts`):** through the real UI, a new site shows "Gap: No verified
+  evidence yet". An old photo and a fresh photo are uploaded, the gap closes and the site
+  shows 2 files. Compare suggests the pair, the divider moves with the arrow keys, and the
+  composite URL returns an image. Search finds both photos and opens the drawer.
+- The opt-in live test (`pnpm test:live`) now also checks that Cloudinary renders the
+  labelled composite and that Gemini embeddings rank by meaning.
+- Manual: screenshots of search (light, dark, 390 px), compare (desktop and mobile dark),
+  the Sites gap badge, the overview's gap list and the composite image. They surfaced:
+  - **A real bug, fixed with a regression test:** every site reported "0 files". The
+    count used a correlated subquery, and Drizzle leaves columns unqualified in a
+    single-table select, so the subquery compared `site_id` with its own `id`. It's now a
+    join. This also fixes the Compare tab's default choice (the first site with at least
+    two files).
+  - Search filters wrapped awkwardly on phones and are now a two-column grid.
+- Test reliability:
+  - e2e sign-ups use random emails; two parallel workers could produce the same
+    timestamp-based address.
+  - e2e sign-up and sign-in allow 15 s, because every worker hashes a password (scrypt,
+    slow on purpose) at the same moment.
+  - Web tests allow 15 s each, because full-app route tests in jsdom can exceed 5 s when
+    run in parallel.
+  - The assertion that checked for no gap badges used an anchored regex that could never
+    match, so it passed whatever the page showed; it now counts the badges correctly.
+
+### Known issues
+
+- An asset's embedding includes its project and site names as they were at upload.
+  Renaming a project or site doesn't re-embed its evidence, so searching by the new name
+  relies on the other words in the query. Re-embedding on rename belongs with the Phase 7
+  hardening.
+- The composite's text labels and overlay syntax follow Cloudinary's transformation
+  reference. The URL is generated by the SDK, and the live test checks that it renders, but
+  that check hasn't run yet because the Cloudinary keys are still missing.
