@@ -44,14 +44,17 @@ and CSR teams receive thousands of them and can't tell which are real.
   </tr>
   <tr>
     <td><img src="docs/screenshots/report.jpg" alt="Report reader: every statement cites evidence E1, E2…" /></td>
-    <td><img src="docs/screenshots/compare.jpg" alt="Before/after slider for a site, with a downloadable composite" /></td>
+    <td><img src="docs/screenshots/report-evidence.jpg" alt="Selecting a statement opens the photo it cites, with its Trust Score and checks" /></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/compare.jpg" alt="Before/after slider for a site" /></td>
+    <td><img src="docs/screenshots/phone-evidence.jpg" alt="Uploading from a phone: Take a photo" /></td>
   </tr>
 </table>
 
-<p align="center"><img src="docs/screenshots/phone-evidence.jpg" alt="Uploading from a phone: Take a photo" width="280" /></p>
-
-_Screenshots come from the seeded demo organisation on a local production build (see
-[Demo data](#demo-data)). A 4-minute walkthrough is in [docs/demo-script.md](docs/demo-script.md)._
+_Screenshots come from the seeded demo organisation (see [Demo data](#demo-data)), running on
+real Cloudinary and Gemini: captions, tags, thumbnails and the report text are theirs. A
+4-minute walkthrough is in [docs/demo-script.md](docs/demo-script.md)._
 
 ## Architecture
 
@@ -135,6 +138,11 @@ Cloudinary is the evidence store and part of the verification engine. The code l
 | **Previews**                | `c_limit,w_1600/f_auto,q_auto` for the detail drawer, the compare slider and the report reader.                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | **Before/after composites** | One URL builds a labelled side-by-side image on the CDN. The "before" photo is cropped to 800×600 (`g_auto`) and padded to 1600 wide. The "after" photo is overlaid on the right as a layer, positioned with `fl_layer_apply,g_east`. Text layers add "Before · date" and "After · date". The image can be downloaded or embedded, and no new file is stored.                                                                                                                                                                                                    |
 | **PDF stills**              | Reports embed `c_fill,g_auto,w_480,h_360/q_auto` stills as explicit JPEGs, because the PDF renderer can't embed the WebP that `f_auto` might serve.                                                                                                                                                                                                                                                                                                                                                                                                              |
+
+This before/after image is a single Cloudinary URL built from two uploads in the demo. It
+wasn't stored anywhere; the CDN renders and caches it:
+
+![A before/after composite built by a Cloudinary transformation: dry ground, then the new hand pump, each with a date label](docs/screenshots/composite.jpg)
 
 ## Trust Score
 

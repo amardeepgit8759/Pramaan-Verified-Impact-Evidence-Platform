@@ -614,3 +614,18 @@ Still to do once the credentials arrive:
   other models (see DECISIONS). In the passing run, captioning fell back to
   `gemini-3.5-flash-lite` and the report to `gemini-2.5-flash`, each logged. Five new unit
   tests cover retries, fallbacks and which errors count as capacity problems.
+- **Demo seeded through the real pipeline** (local API with real keys):
+  - All 16 photos went through Cloudinary and Gemini, and the planted problems came out
+    exactly as designed:
+    - the reused tank: flagged 0;
+    - the resized copy: near-duplicate at **2/64** by Cloudinary's real pHash;
+    - the off-site photo: 60;
+    - the no-EXIF photo: 85;
+    - everything else: verified 100.
+  - Gemini wrote accurate captions, and it did all the tagging, because the Free plan has
+    no Cloudinary tagging add-on enabled (the fallback working as designed).
+  - The generated report kept 10 cited statements and dropped 2 whose citations weren't
+    eligible, so the validator is catching real model output.
+- The README screenshots were retaken on this real data, and the README now shows a
+  before/after composite rendered by Cloudinary from a single URL. The PDF with real
+  Cloudinary stills rendered in 1.6 s (5 pages).

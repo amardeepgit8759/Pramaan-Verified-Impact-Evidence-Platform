@@ -102,7 +102,7 @@ Go to **Phase 1 → Share → Create link**; it's copied. Open it in a private w
 > "No account needed. The funder sees verified evidence only, the map, the numbers and
 > the report. Nothing can be changed, and the link expires."
 
-Show **Compare** on the laptop for a moment: dry land, then the finished tank, with a
+Show **Compare** on the laptop for a moment: dry land, then the new hand pump, with a
 side-by-side image built by Cloudinary.
 
 **3:40 · Close (20 s)**
