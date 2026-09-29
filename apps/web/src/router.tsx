@@ -1,71 +1,122 @@
+import type { ComponentType } from 'react';
 import { createBrowserRouter, type RouteObject } from 'react-router';
 import { AppLayout } from './routes/app/app-layout';
-import { DashboardPage } from './routes/app/dashboard';
-import { ProjectCompare } from './routes/app/project/compare';
-import { ProjectEvidence } from './routes/app/project/evidence';
-import { ProjectMap } from './routes/app/project/project-map';
-import { ProjectReport } from './routes/app/project/report-view';
-import { ProjectReports } from './routes/app/project/reports';
-import { ProjectReview } from './routes/app/project/review-queue';
-import { ProjectShare } from './routes/app/project/share';
-import { ProjectTimeline } from './routes/app/project/timeline';
-import { ProjectOverview } from './routes/app/project/overview';
 import { ProjectLayout } from './routes/app/project/project-layout';
-import { ProjectSites } from './routes/app/project/sites';
-import { ProjectsPage } from './routes/app/projects';
-import { SearchPage } from './routes/app/search-page';
-import { SettingsPage } from './routes/app/settings/settings-page';
 import { GuestOnly } from './routes/auth/guest-only';
-import { SetPasswordPage } from './routes/auth/set-password';
-import { SignInPage } from './routes/auth/sign-in';
-import { SignUpPage } from './routes/auth/sign-up';
-import { LandingPage } from './routes/landing';
-import { SharePage } from './routes/share/share-page';
-import { AppNotFoundPage, NotFoundPage, RouteErrorPage } from './routes/not-found';
+import {
+  AppNotFoundPage,
+  AppRouteErrorPage,
+  NotFoundPage,
+  RouteErrorPage,
+} from './routes/not-found';
+import { StartupSkeleton } from './routes/startup-skeleton';
+
+/**
+ * Each page is its own chunk, loaded when first visited, so the landing page and sign-in
+ * don't download charts, maps or the report reader. Layouts stay in the main bundle.
+ */
+function page<K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) {
+  return async () => ({ Component: (await load())[name] });
+}
 
 export const routes: RouteObject[] = [
   {
     errorElement: <RouteErrorPage />,
+    hydrateFallbackElement: <StartupSkeleton />,
     children: [
-      { index: true, element: <LandingPage /> },
+      { index: true, lazy: page(() => import('./routes/landing'), 'LandingPage') },
       {
         element: <GuestOnly />,
         children: [
-          { path: 'signin', element: <SignInPage /> },
-          { path: 'signup', element: <SignUpPage /> },
+          { path: 'signin', lazy: page(() => import('./routes/auth/sign-in'), 'SignInPage') },
+          { path: 'signup', lazy: page(() => import('./routes/auth/sign-up'), 'SignUpPage') },
         ],
       },
-      { path: 'set-password', element: <SetPasswordPage /> },
+      {
+        path: 'set-password',
+        lazy: page(() => import('./routes/auth/set-password'), 'SetPasswordPage'),
+      },
       {
         path: 'app',
         element: <AppLayout />,
         children: [
-          { index: true, element: <DashboardPage /> },
-          { path: 'projects', element: <ProjectsPage /> },
           {
-            path: 'projects/:projectId',
-            element: <ProjectLayout />,
+            // A crash inside a page keeps the navigation, so people can move on.
+            errorElement: <AppRouteErrorPage />,
             children: [
-              { index: true, element: <ProjectOverview /> },
-              { path: 'evidence', element: <ProjectEvidence /> },
-              { path: 'map', element: <ProjectMap /> },
-              { path: 'timeline', element: <ProjectTimeline /> },
-              { path: 'compare', element: <ProjectCompare /> },
-              { path: 'review', element: <ProjectReview /> },
-              { path: 'reports', element: <ProjectReports /> },
-              { path: 'reports/:reportId', element: <ProjectReport /> },
-              { path: 'sites', element: <ProjectSites /> },
-              { path: 'share', element: <ProjectShare /> },
+              { index: true, lazy: page(() => import('./routes/app/dashboard'), 'DashboardPage') },
+              {
+                path: 'projects',
+                lazy: page(() => import('./routes/app/projects'), 'ProjectsPage'),
+              },
+              {
+                path: 'projects/:projectId',
+                element: <ProjectLayout />,
+                children: [
+                  {
+                    index: true,
+                    lazy: page(() => import('./routes/app/project/overview'), 'ProjectOverview'),
+                  },
+                  {
+                    path: 'evidence',
+                    lazy: page(() => import('./routes/app/project/evidence'), 'ProjectEvidence'),
+                  },
+                  {
+                    path: 'map',
+                    lazy: page(() => import('./routes/app/project/project-map'), 'ProjectMap'),
+                  },
+                  {
+                    path: 'timeline',
+                    lazy: page(() => import('./routes/app/project/timeline'), 'ProjectTimeline'),
+                  },
+                  {
+                    path: 'compare',
+                    lazy: page(() => import('./routes/app/project/compare'), 'ProjectCompare'),
+                  },
+                  {
+                    path: 'review',
+                    lazy: page(() => import('./routes/app/project/review-queue'), 'ProjectReview'),
+                  },
+                  {
+                    path: 'reports',
+                    lazy: page(() => import('./routes/app/project/reports'), 'ProjectReports'),
+                  },
+                  {
+                    path: 'reports/:reportId',
+                    lazy: page(() => import('./routes/app/project/report-view'), 'ProjectReport'),
+                  },
+                  {
+                    path: 'sites',
+                    lazy: page(() => import('./routes/app/project/sites'), 'ProjectSites'),
+                  },
+                  {
+                    path: 'share',
+                    lazy: page(() => import('./routes/app/project/share'), 'ProjectShare'),
+                  },
+                ],
+              },
+              {
+                path: 'search',
+                lazy: page(() => import('./routes/app/search-page'), 'SearchPage'),
+              },
+              {
+                path: 'settings',
+                lazy: page(() => import('./routes/app/settings/settings-page'), 'SettingsPage'),
+              },
+              { path: '*', element: <AppNotFoundPage /> },
             ],
           },
-          { path: 'search', element: <SearchPage /> },
-          { path: 'settings', element: <SettingsPage /> },
-          { path: '*', element: <AppNotFoundPage /> },
         ],
       },
       // Public funder view: no session, the token is the key.
-      { path: 'share/:token', element: <SharePage /> },
-      { path: 'share/:token/reports/:reportId', element: <SharePage /> },
+      {
+        path: 'share/:token',
+        lazy: page(() => import('./routes/share/share-page'), 'SharePage'),
+      },
+      {
+        path: 'share/:token/reports/:reportId',
+        lazy: page(() => import('./routes/share/share-page'), 'SharePage'),
+      },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

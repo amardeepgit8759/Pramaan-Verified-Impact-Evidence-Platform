@@ -20,7 +20,9 @@
     "db:migrate": "pnpm --filter @pramaan/api db:migrate",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test:live": "pnpm --filter @pramaan/api test:live"
+    "test:live": "pnpm --filter @pramaan/api test:live",
+    "seed:demo": "pnpm --filter @pramaan/scripts seed",
+    "demo:images": "pnpm --filter @pramaan/scripts images"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

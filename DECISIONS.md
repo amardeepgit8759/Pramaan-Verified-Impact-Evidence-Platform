@@ -421,3 +421,51 @@ structured-output, image and embedding docs, on 2026-09-27/28.
   16 GB laptop that also runs Docker, six of them starved memory and slowed every test.
   Uploads verify and reports render on a real server pipeline, so 10 s also leaves room
   for the Phase 7 runs against a deployed `BASE_URL`.
+
+## Phase 7: hardening, demo data, deploy (2026-09-29)
+
+- **Demo photos are real and freely licensed**, from Wikimedia Commons: scenes of the work,
+  not identifiable people. Licences were checked against an allowlist, and each file's
+  author and licence are credited in `demo-data/README.md`. CC BY-SA files, including the
+  derived near-duplicate, stay CC BY-SA. The photos are committed (about 5 MB), so seeding
+  works offline.
+- **Demo metadata is written at seed time.** Original EXIF (camera, place, date) is
+  stripped. The seed writes a capture date and GPS relative to the day it runs, so the
+  timeline, late-upload rule and gap alerts always look like an ongoing project. This is
+  stated plainly in the demo README.
+- **The seed only uses the public HTTP API** (sign up, signed upload, confirm, review,
+  report), so it exercises the real pipeline and works against local, e2e and deployed
+  servers alike. It refuses to seed an email that already has an account rather than
+  duplicate the organisation.
+- **The e2e fake Cloudinary computes a DCT pHash and serves 480 px thumbnails.** Its
+  earlier average hash called two different demo photos near-duplicates. The fake should
+  behave like the real service wherever a test or a demo depends on it.
+- **AI endpoints are rate-limited separately:** 120 requests a minute per user for search
+  and upload confirmation, and 10 reports an hour per organisation. These calls cost money
+  and share one Gemini quota. Both limits are environment settings.
+- **Mutations without their own error handling toast by default** (`MutationCache`).
+  Forms that show errors inline opt out with `meta.handlesErrors`. So no failure is
+  silent, and none is reported twice.
+- **Crashes inside the app are caught per page**: the navigation stays usable, and Reload
+  and Back-to-dashboard are offered. After a deploy, a tab that asks for page chunks that
+  no longer exist is told to reload rather than shown an error.
+- **Performance choices.**
+  - Routes load lazily. Charts load after the KPIs.
+  - framer-motion isn't loaded app-wide: the dashboard's count-up and glow use
+    `requestAnimationFrame` and the Web Animations API.
+  - gzip for everything except Server-Sent Events, which would otherwise be buffered.
+  - Fonts are self-hosted, with preloaded Latin files at stable URLs.
+  - Only the icons are grouped into one chunk. Grouping all UI code was tried and made
+    LCP worse, because every page then loaded every component; HTTP/2 makes many small
+    chunks cheap in production.
+- **Lighthouse ≥ 90 is met on desktop (94) but not on mobile (49).** Reaching 90 on
+  throttled mobile would need server-side rendering of the first view, which is out of
+  scope for this build. Accessibility is 100 on both.
+- **OpenGraph image URLs are made absolute when the page is served**, from `PUBLIC_URL`
+  or Render's `RENDER_EXTERNAL_URL`, because crawlers ignore relative `og:image` URLs.
+- **Neon over TLS with `sslmode=verify-full`.** `pg` 8.23 treats `require` as
+  `verify-full` but prints a security warning, and Neon's certificates are publicly
+  trusted. Use the direct (unpooled) connection string: the app keeps its own pool, and
+  migrations run on start.
+- **`render.yaml` targets Singapore**, the Render region closest to NGOs in India. Secrets
+  are marked `sync: false` so Render asks for them, and `JWT_SECRET` is generated.

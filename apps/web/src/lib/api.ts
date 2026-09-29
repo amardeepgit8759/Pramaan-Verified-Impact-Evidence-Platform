@@ -45,16 +45,23 @@ async function request<T>(
   body: unknown,
   { signal, acceptErrorBody = false }: RequestOptions = {},
 ): Promise<T> {
-  const res = await fetch(`/api${path}`, {
-    method,
-    credentials: 'same-origin',
-    headers: {
-      Accept: 'application/json',
-      ...(body !== undefined && { 'Content-Type': 'application/json' }),
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-    signal,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`/api${path}`, {
+      method,
+      credentials: 'same-origin',
+      headers: {
+        Accept: 'application/json',
+        ...(body !== undefined && { 'Content-Type': 'application/json' }),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal,
+    });
+  } catch (err) {
+    if (signal?.aborted) throw err;
+    // Offline, DNS, or the server is restarting: say so in words.
+    throw new ApiError(0, 'Can’t reach Pramaan. Check your connection and try again.', null);
+  }
   const data: unknown = res.status === 204 ? null : await res.json().catch(() => null);
 
   if (!res.ok && !acceptErrorBody) {

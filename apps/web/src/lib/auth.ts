@@ -17,6 +17,8 @@ function useSessionMutation<TInput>(path: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: TInput) => api.post(path, input, sessionResponse),
+    // Sign-in, sign-up and set-password forms show errors inline.
+    meta: { handlesErrors: true },
     onSuccess: (session: SessionResponse) => {
       queryClient.clear();
       queryClient.setQueryData(queryKeys.session, session);

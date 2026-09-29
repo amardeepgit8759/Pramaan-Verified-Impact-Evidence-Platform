@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
@@ -23,6 +24,7 @@ import { projectShareLinksRouter, sharedRouter, shareLinksRouter } from './route
 import { publicRouter } from './routes/public.js';
 import { usersRouter } from './routes/users.js';
 import { liveRouter } from './routes/live.js';
+import { aiRateLimiters } from './ai-rate-limit.js';
 import type { AiClient } from './services/ai.js';
 import type { LiveHub } from './services/live.js';
 import type { MediaStore } from './services/media.js';
@@ -44,6 +46,14 @@ export function createApp({ env, db, logger, media, ai, live }: AppDeps) {
   const reportDeps = { db, ai, media, logger, live };
   const app = express();
   app.disable('x-powered-by');
+  app.use(
+    compression({
+      // Live updates must reach the browser as they happen; gzip would buffer the stream.
+      filter: (req, res) =>
+        !String(res.getHeader('Content-Type') ?? '').startsWith('text/event-stream') &&
+        compression.filter(req, res),
+    }),
+  );
   // Render (and most PaaS) terminate TLS at one proxy hop; needed for correct client IPs.
   if (env.NODE_ENV === 'production') app.set('trust proxy', 1);
 
@@ -64,8 +74,8 @@ export function createApp({ env, db, logger, media, ai, live }: AppDeps) {
           ],
           'media-src': ["'self'", 'blob:', 'https://res.cloudinary.com'],
           'connect-src': ["'self'", 'https://api.cloudinary.com'],
-          'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-          'font-src': ["'self'", 'data:', 'https://fonts.gstatic.com'],
+          'style-src': ["'self'", "'unsafe-inline'"],
+          'font-src': ["'self'", 'data:'],
         },
       },
     }),
@@ -112,6 +122,11 @@ export function createApp({ env, db, logger, media, ai, live }: AppDeps) {
     next();
   });
   api.use(authenticate(db, env));
+  // Gemini-backed endpoints get their own, tighter limits (keyed by user or organisation).
+  const limits = aiRateLimiters(env);
+  api.get('/search', limits.ai);
+  api.post('/assets/confirm', limits.ai);
+  api.post('/projects/:projectId/reports', limits.reports);
   api.use('/health', healthRouter(db));
   api.use('/public', publicRouter(db));
   api.use('/share/:token', sharedRouter({ db, media }));
@@ -134,7 +149,10 @@ export function createApp({ env, db, logger, media, ai, live }: AppDeps) {
   api.use(notFoundHandler);
   app.use('/api', api);
 
-  if (env.WEB_DIST_DIR) serveWebApp(app, path.resolve(env.WEB_DIST_DIR), logger);
+  if (env.WEB_DIST_DIR) {
+    const origin = (env.PUBLIC_URL ?? env.RENDER_EXTERNAL_URL ?? '').replace(/\/+$/, '');
+    serveWebApp(app, path.resolve(env.WEB_DIST_DIR), origin, logger);
+  }
 
   app.use(notFoundHandler);
   app.use(errorHandler);
@@ -142,7 +160,7 @@ export function createApp({ env, db, logger, media, ai, live }: AppDeps) {
 }
 
 /** Serve the built SPA from the same origin so cookies and SSE need no CORS. */
-function serveWebApp(app: express.Express, distDir: string, logger: Logger) {
+function serveWebApp(app: express.Express, distDir: string, origin: string, logger: Logger) {
   const indexHtml = path.join(distDir, 'index.html');
   if (!fs.existsSync(indexHtml)) {
     logger.warn({ distDir }, 'WEB_DIST_DIR has no index.html; web app will not be served');
@@ -154,11 +172,13 @@ function serveWebApp(app: express.Express, distDir: string, logger: Logger) {
     express.static(path.join(distDir, 'assets'), { maxAge: '1y', immutable: true }),
   );
   app.use(express.static(distDir, { index: false }));
+  // Absolute URLs for social previews; relative when no public origin is configured.
+  const html = fs.readFileSync(indexHtml, 'utf8').replaceAll('__PUBLIC_ORIGIN__', origin);
   app.use((req, res, next) => {
     if (req.method !== 'GET' || req.path.startsWith('/api')) return next();
     res.setHeader('Cache-Control', 'no-cache');
     // Funder share pages are private links: keep them out of search engines.
     if (req.path.startsWith('/share/')) res.setHeader('X-Robots-Tag', 'noindex, nofollow');
-    res.sendFile(indexHtml);
+    res.type('html').send(html);
   });
 }

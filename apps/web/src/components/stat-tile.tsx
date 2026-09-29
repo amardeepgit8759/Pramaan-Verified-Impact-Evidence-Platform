@@ -1,29 +1,49 @@
-import {
-  animate,
-  motion,
-  useAnimate,
-  useMotionValue,
-  useReducedMotion,
-  useTransform,
-} from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 
-/** Counts to a new value in under 200 ms (or jumps, with reduced motion). */
+// Plain requestAnimationFrame and the Web Animations API: the dashboard shouldn't need an
+// animation library for a count-up and a glow.
+const COUNT_MS = 180;
+const GLOW_MS = 600;
+
+const prefersReducedMotion = () =>
+  typeof window.matchMedia !== 'function' ||
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * Counts to a new value in under 200 ms (or jumps, with reduced motion). The span's text is
+ * written directly, frame by frame, so React never reconciles the in-between numbers.
+ */
 function AnimatedNumber({ value, format }: { value: number; format: (n: number) => string }) {
-  const reduce = useReducedMotion();
-  const mv = useMotionValue(value);
-  const text = useTransform(mv, (v) => format(v));
+  const ref = useRef<HTMLSpanElement>(null);
+  const shown = useRef(value);
   useEffect(() => {
-    if (reduce) {
-      mv.set(value);
+    const el = ref.current;
+    if (!el) return;
+    const from = shown.current;
+    shown.current = value;
+    if (from === value || prefersReducedMotion() || typeof requestAnimationFrame !== 'function') {
+      el.textContent = format(value);
       return;
     }
-    const controls = animate(mv, value, { duration: 0.18, ease: 'easeOut' });
-    return () => controls.stop();
-  }, [mv, value, reduce]);
-  return <motion.span>{text}</motion.span>;
+    // Time from the first frame's own timestamp: it may use a different clock than
+    // performance.now().
+    let start: number | null = null;
+    let frame = 0;
+    const step = (now: number) => {
+      start ??= now;
+      const t = Math.min(1, (now - start) / COUNT_MS);
+      el.textContent = format(from + (value - from) * (1 - (1 - t) ** 3));
+      if (t < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => {
+      cancelAnimationFrame(frame);
+      el.textContent = format(value);
+    };
+  }, [value, format]);
+  return <span ref={ref} />;
 }
 
 /**
@@ -45,24 +65,22 @@ export function StatTile({
   icon?: LucideIcon;
   tone?: 'default' | 'verified' | 'review' | 'flagged';
 }) {
-  const [scope, animateTile] = useAnimate<HTMLDivElement>();
-  const reduce = useReducedMotion();
+  const tile = useRef<HTMLDivElement>(null);
   const previous = useRef(value);
 
   useEffect(() => {
-    if (previous.current !== value && previous.current !== null && !reduce) {
-      void animateTile(
-        scope.current,
-        { boxShadow: ['0 0 0 3px var(--ring)', '0 0 0 0px transparent'] },
-        { duration: 0.6, ease: 'easeOut' },
+    if (previous.current !== value && previous.current !== null && !prefersReducedMotion()) {
+      tile.current?.animate?.(
+        [{ boxShadow: '0 0 0 3px var(--ring)' }, { boxShadow: '0 0 0 0px transparent' }],
+        { duration: GLOW_MS, easing: 'ease-out' },
       );
     }
     previous.current = value;
-  }, [value, reduce, animateTile, scope]);
+  }, [value]);
 
   return (
     <div
-      ref={scope}
+      ref={tile}
       className="flex flex-col rounded-2xl border bg-card p-5 shadow-soft"
       data-tone={tone}
     >

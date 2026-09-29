@@ -31,11 +31,11 @@ Migrations run automatically when the API starts; `pnpm db:migrate` runs them by
 | `pnpm test`                    | Vitest: unit tests plus API integration tests (needs `pnpm db:up`) |
 | `pnpm build` then `pnpm e2e`   | Playwright against the production build                            |
 | `pnpm db:generate`             | Generate a Drizzle migration from `apps/api/src/db/schema.ts`      |
-| `docker compose up --build`    | The production image + database at http://localhost:3000           |
+| `docker compose up --build`    | The production image + database at <http://localhost:3000>         |
 
 ## Layout
 
-```
+```text
 apps/api         Express API; also serves the built web app in production
 apps/web         React 18 + Vite frontend
 packages/shared  zod schemas, types, default settings, Trust Score maths
@@ -44,7 +44,15 @@ packages/shared  zod schemas, types, default settings, Trust Score maths
 ## Deploying
 
 One Docker image (see `Dockerfile`) runs on Render with Neon Postgres. The API serves the web
-app from the same origin, so cookies and Server-Sent Events need no CORS. Set the variables
-from `.env.example` in Render, with `DATABASE_URL` pointing at Neon (`?sslmode=require`).
+app from the same origin, so cookies and Server-Sent Events need no CORS.
+
+1. Create a Neon project (region AWS Singapore, next to the Render service) and copy its
+   **direct** connection string. Change the ending to `?sslmode=verify-full`. The first
+   migration enables `pgvector`, which Neon supports.
+2. In Render, choose **New → Blueprint** and point it at this repository. `render.yaml`
+   defines the service; Render asks for `DATABASE_URL` and the Cloudinary and Gemini keys,
+   and generates `JWT_SECRET`.
+3. Deploys run migrations on start, and `/api/health` reports the database and pgvector.
+   Check a deployment end to end with `BASE_URL=https://<your-app>.onrender.com pnpm e2e`.
 
 See `DECISIONS.md` for why things are the way they are, and `PROGRESS.md` for status.

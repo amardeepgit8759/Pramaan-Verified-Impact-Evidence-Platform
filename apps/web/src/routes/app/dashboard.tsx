@@ -1,9 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, Gauge, Images, MapPinOff, ShieldCheck, ShieldX } from 'lucide-react';
+import { lazy, Suspense } from 'react';
 import { Link } from 'react-router';
-import { BandDonut } from '@/components/charts/band-donut';
 import { ChartCard } from '@/components/charts/chart-parts';
-import { UploadsChart } from '@/components/charts/uploads-chart';
 import { FormError } from '@/components/field';
 import { StatTile } from '@/components/stat-tile';
 import { Button } from '@/components/ui/button';
@@ -16,6 +15,17 @@ import { ProjectCard, ProjectGridSkeleton } from './project-card';
 import { NoProjects } from './projects';
 
 const RECENT = 6;
+
+// Recharts is most of this page's JavaScript: load it after the numbers are on screen.
+const UploadsChart = lazy(() =>
+  import('@/components/charts/uploads-chart').then((m) => ({ default: m.UploadsChart })),
+);
+const BandDonut = lazy(() =>
+  import('@/components/charts/band-donut').then((m) => ({ default: m.BandDonut })),
+);
+// Placeholders take the charts' final size (plot plus the table toggle), so nothing shifts.
+const uploadsFallback = <Skeleton className="h-64 rounded-xl" />;
+const donutFallback = <Skeleton className="h-80 rounded-xl sm:h-52" />;
 
 export function DashboardPage() {
   const { data: session } = useSession();
@@ -91,7 +101,9 @@ export function DashboardPage() {
               className="lg:col-span-3"
               dimmed={metrics.isFetching}
             >
-              <UploadsChart data={m.uploadsPerDay} />
+              <Suspense fallback={uploadsFallback}>
+                <UploadsChart data={m.uploadsPerDay} />
+              </Suspense>
             </ChartCard>
             <ChartCard
               title="Trust bands"
@@ -100,7 +112,9 @@ export function DashboardPage() {
               dimmed={metrics.isFetching}
             >
               {m.totalAssets > 0 ? (
-                <BandDonut bands={m.bands} />
+                <Suspense fallback={donutFallback}>
+                  <BandDonut bands={m.bands} />
+                </Suspense>
               ) : (
                 <p className="py-10 text-center text-sm text-muted-foreground">
                   No evidence yet. Upload photos to a project to see how they score.

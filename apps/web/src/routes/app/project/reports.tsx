@@ -55,6 +55,8 @@ function useGenerateReport(projectId: string) {
   return useMutation({
     mutationFn: (input: ReportInput) =>
       api.post(`/projects/${projectId}/reports`, input, reportSummarySchema),
+    // The dialog shows errors inline; "Try again" toasts its own.
+    meta: { handlesErrors: true },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.reports(projectId) });
       toast.success('Writing your report. You’ll get a notification when it’s ready.');

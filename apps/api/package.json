@@ -22,6 +22,7 @@
     "@pramaan/shared": "workspace:*",
     "@react-pdf/renderer": "^4.9.0",
     "cloudinary": "^2.11.0",
+    "compression": "^1.8.2",
     "cookie-parser": "^1.4.7",
     "csv-stringify": "^6.9.0",
     "drizzle-orm": "~0.45.3",
@@ -36,6 +37,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@types/compression": "^1.8.1",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",

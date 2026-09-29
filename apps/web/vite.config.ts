@@ -14,6 +14,17 @@ export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(import.meta.dirname, 'src') },
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        // Every icon is tiny and shared by many pages, so without this each became its own
+        // request. Everything else splits by page: a page loads only the code it uses.
+        codeSplitting: {
+          groups: [{ name: 'icons', test: /node_modules[\\/]lucide-react[\\/]/ }],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     // Same-origin in dev too, so auth cookies and SSE behave exactly as in production.

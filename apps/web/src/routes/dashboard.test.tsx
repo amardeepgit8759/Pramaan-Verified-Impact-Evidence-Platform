@@ -69,13 +69,14 @@ describe('dashboard', () => {
     expect(within(verified).getByText('67%')).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Uploads per day' })).toBeVisible();
     const bands = screen.getByRole('heading', { name: 'Trust bands' }).closest('section')!;
+    // Charts load after the numbers.
     expect(
-      within(bands).getByRole('img', { name: '2 verified, 1 needs review, 0 flagged' }),
+      await within(bands).findByRole('img', { name: '2 verified, 1 needs review, 0 flagged' }),
     ).toBeVisible();
     expect(screen.getByText('Kheda Dhani')).toBeVisible();
     expect(screen.getByText(/Nothing waiting/)).toBeVisible();
     // Every chart has a table twin.
-    expect(screen.getAllByText('Show as table')).toHaveLength(2);
+    await waitFor(() => expect(screen.getAllByText('Show as table')).toHaveLength(2));
   });
 
   it('refreshes figures when a live event arrives, and toasts other people’s flags', async () => {

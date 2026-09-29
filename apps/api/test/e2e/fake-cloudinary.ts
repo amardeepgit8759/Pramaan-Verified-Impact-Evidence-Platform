@@ -15,28 +15,81 @@ import type { CloudinaryResource, MediaStore } from '../../src/services/media.js
 
 const UPLOAD_PATH = '/__e2e/cloudinary/upload';
 const COMPOSITE_PATH = '/__e2e/cloudinary/composite';
+const THUMB_PATH = '/__e2e/cloudinary/thumb';
+const THUMB_WIDTH = 480;
 
-/** 8x8 average hash of a JPEG, as 16 hex digits (the shape Cloudinary's pHash has). */
-function averageHash(file: Buffer): string | null {
+/** A JPEG scaled (nearest neighbour) to at most THUMB_WIDTH wide, like Cloudinary's grid thumbnails. */
+function thumbnail(file: Buffer): Buffer {
+  const img = jpeg.decode(file, { useTArray: true });
+  if (img.width <= THUMB_WIDTH) return file;
+  const w = THUMB_WIDTH;
+  const h = Math.round((img.height * w) / img.width);
+  const out = Buffer.alloc(w * h * 4);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const src =
+        (Math.floor((y * img.height) / h) * img.width + Math.floor((x * img.width) / w)) * 4;
+      out.set(img.data.subarray(src, src + 4), (y * w + x) * 4);
+    }
+  }
+  return jpeg.encode({ data: out, width: w, height: h }, 80).data;
+}
+
+const PHASH_SIZE = 32;
+const COS = Array.from({ length: 8 }, (_, u) =>
+  Array.from({ length: PHASH_SIZE }, (_, x) =>
+    Math.cos(((2 * x + 1) * u * Math.PI) / (2 * PHASH_SIZE)),
+  ),
+);
+
+/**
+ * DCT perceptual hash of a JPEG, as 16 hex digits like Cloudinary's: greyscale at 32×32,
+ * the 8×8 lowest frequencies, one bit each for above/below their median. Resizing and
+ * re-compressing barely change it; different scenes differ by many bits.
+ */
+function perceptualHash(file: Buffer): string | null {
   try {
     const { data, width, height } = jpeg.decode(file, { useTArray: true });
-    const cells: number[] = [];
-    for (let cy = 0; cy < 8; cy++) {
-      for (let cx = 0; cx < 8; cx++) {
+    const grey: number[][] = [];
+    for (let y = 0; y < PHASH_SIZE; y++) {
+      const row: number[] = [];
+      for (let x = 0; x < PHASH_SIZE; x++) {
+        // Average the block of source pixels this cell covers.
+        const [y0, y1] = [
+          Math.floor((y * height) / PHASH_SIZE),
+          Math.floor(((y + 1) * height) / PHASH_SIZE),
+        ];
+        const [x0, x1] = [
+          Math.floor((x * width) / PHASH_SIZE),
+          Math.floor(((x + 1) * width) / PHASH_SIZE),
+        ];
         let sum = 0;
         let n = 0;
-        for (let y = Math.floor((cy * height) / 8); y < Math.floor(((cy + 1) * height) / 8); y++) {
-          for (let x = Math.floor((cx * width) / 8); x < Math.floor(((cx + 1) * width) / 8); x++) {
-            const i = (y * width + x) * 4;
+        for (let sy = y0; sy < Math.max(y1, y0 + 1); sy++) {
+          for (let sx = x0; sx < Math.max(x1, x0 + 1); sx++) {
+            const i = (sy * width + sx) * 4;
             sum += 0.299 * data[i]! + 0.587 * data[i + 1]! + 0.114 * data[i + 2]!;
             n++;
           }
         }
-        cells.push(sum / Math.max(1, n));
+        row.push(sum / n);
+      }
+      grey.push(row);
+    }
+    const coefficients: number[] = [];
+    for (let u = 0; u < 8; u++) {
+      for (let v = 0; v < 8; v++) {
+        let sum = 0;
+        for (let y = 0; y < PHASH_SIZE; y++) {
+          for (let x = 0; x < PHASH_SIZE; x++) sum += grey[y]![x]! * COS[u]![y]! * COS[v]![x]!;
+        }
+        coefficients.push(sum);
       }
     }
-    const mean = cells.reduce((a, b) => a + b, 0) / cells.length;
-    const bits = cells.map((c) => (c >= mean ? '1' : '0')).join('');
+    // The DC term (overall brightness) would dominate the median; leave it out.
+    const sorted = coefficients.slice(1).sort((a, b) => a - b);
+    const median = (sorted[31]! + sorted[32]!) / 2;
+    const bits = coefficients.map((c) => (c > median ? '1' : '0')).join('');
     return BigInt(`0b${bits}`).toString(16).padStart(16, '0');
   } catch {
     return null;
@@ -88,6 +141,7 @@ function sideBySide(left: Buffer, right: Buffer): Buffer {
 export class FakeCloudinary implements MediaStore {
   private readonly resources = new Map<string, CloudinaryResource>();
   private readonly files = new Map<string, Buffer>();
+  private readonly thumbs = new Map<string, Buffer>();
 
   constructor(private readonly baseUrl: string) {}
 
@@ -113,7 +167,7 @@ export class FakeCloudinary implements MediaStore {
         bytes: file.length,
         secureUrl: `${this.baseUrl}/__e2e/cloudinary/file/${encodeURIComponent(publicId)}`,
         etag: createHash('md5').update(file).digest('hex'),
-        phash: averageHash(file),
+        phash: perceptualHash(file),
         createdAt: new Date(),
         originalFilename: req.file.originalname.replace(/\.[^.]+$/, ''),
         tags: [],
@@ -129,6 +183,20 @@ export class FakeCloudinary implements MediaStore {
         return;
       }
       res.type('image/jpeg').send(sideBySide(a, b));
+    });
+    router.get(`${THUMB_PATH}/:id`, (req, res) => {
+      const id = decodeURIComponent(req.params.id);
+      const file = this.files.get(id);
+      if (!file) {
+        res.status(404).end();
+        return;
+      }
+      let thumb = this.thumbs.get(id);
+      if (!thumb) {
+        thumb = thumbnail(file);
+        this.thumbs.set(id, thumb);
+      }
+      res.type('image/jpeg').set('Cache-Control', 'public, max-age=31536000').send(thumb);
     });
     router.get('/__e2e/cloudinary/file/:id', (req, res) => {
       const file = this.files.get(decodeURIComponent(req.params.id));
@@ -174,7 +242,9 @@ export class FakeCloudinary implements MediaStore {
   }
 
   thumbnailUrl(publicId: string) {
-    return this.resources.get(publicId)?.secureUrl ?? '';
+    return this.resources.has(publicId)
+      ? `${this.baseUrl}${THUMB_PATH}/${encodeURIComponent(publicId)}`
+      : '';
   }
 
   previewUrl(publicId: string) {

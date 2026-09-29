@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
+import { motion, MotionConfig } from 'framer-motion';
 import {
   ArrowRight,
   CalendarClock,
@@ -27,24 +27,26 @@ const fadeUp = {
 
 export function LandingPage() {
   return (
-    <div className="min-h-dvh overflow-x-clip">
-      <LandingHeader />
-      <main>
-        <Hero />
-        <HowItWorks />
-        <Checks />
-        <ClosingCta />
-      </main>
-      <footer className="border-t">
-        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:justify-between sm:px-6">
-          <p>Pramaan · प्रमाण · “proof”</p>
-          <p>
-            Reports are aligned to SDG and CSR categories. Pramaan does not certify legal
-            compliance.
-          </p>
-        </div>
-      </footer>
-    </div>
+    <MotionConfig reducedMotion="user">
+      <div className="min-h-dvh overflow-x-clip">
+        <LandingHeader />
+        <main>
+          <Hero />
+          <HowItWorks />
+          <Checks />
+          <ClosingCta />
+        </main>
+        <footer className="border-t">
+          <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:justify-between sm:px-6">
+            <p>Pramaan · प्रमाण · “proof”</p>
+            <p>
+              Reports are aligned to SDG and CSR categories. Pramaan does not certify legal
+              compliance.
+            </p>
+          </div>
+        </footer>
+      </div>
+    </MotionConfig>
   );
 }
 

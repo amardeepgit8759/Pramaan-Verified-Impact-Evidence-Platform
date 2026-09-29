@@ -470,3 +470,100 @@ arrived; it's listed under the phase it belongs to.
   such in the reader and the PDF.
 - The report and PDF are checked with the fake model and fake Cloudinary. The live test
   covers the real Gemini call, but it hasn't run yet because the keys are still missing.
+
+## Phase 7 — Polish, seed, hardening, deploy (local work done; deploy waits for credentials)
+
+### Built
+
+- **Demo data and seed.**
+  - `demo-data/` holds 14 freely licensed photos from Wikimedia Commons and one
+    near-duplicate made from them. Licences were checked against an allowlist (CC0,
+    public domain, CC BY, CC BY-SA), original metadata was stripped, and
+    `demo-data/README.md` lists the credits and the role of each file.
+  - `pnpm seed:demo` creates a demo organisation with three projects and six sites
+    through the real HTTP API only: signed upload, confirm, review and report. It writes
+    capture dates and GPS into each photo at seed time, relative to today.
+  - Planted problems: an exact duplicate across projects (the original is then approved
+    with a note), a resized near-duplicate, an off-site photo, a photo with no EXIF, and
+    two documentation gaps.
+  - `pnpm demo:images` re-fetches the photos.
+- **Errors, 404/500 and toasts.**
+  - A page that crashes inside the app shows an in-place error with Reload, and the
+    navigation keeps working.
+  - Outside the app, a full-page 500 appears; the 404 pages remain.
+  - Chunks missing after a deploy are recognised and the page asks the person to reload.
+  - Any action without its own error handling now shows a toast, and network failures
+    read "Can't reach Pramaan…" instead of "Failed to fetch".
+- **Rate limits on AI endpoints.** Search and upload confirmation are limited per user
+  (120 a minute) and report generation per organisation (10 an hour), both configurable.
+  These sit on top of the existing global and sign-in limits.
+- **Metadata.** OpenGraph and Twitter tags, a generated 1200×630 share image, and an Apple
+  touch icon. Absolute image URLs come from `PUBLIC_URL`, or `RENDER_EXTERNAL_URL` on
+  Render.
+- **Deploy configuration.** `render.yaml` (Docker web service, Singapore, health check,
+  secrets prompted, `JWT_SECRET` generated). README deploy steps, and Neon guidance to
+  use the direct connection string with `sslmode=verify-full`. The Dockerfile was already
+  multi-stage, and migrations already ran on start.
+- **Performance.**
+  - Each page is now its own chunk, so the entry bundle fell from 1.2 MB to about 31 kB.
+  - Dashboard charts load after the figures, and framer-motion loads only on the landing
+    and upload pages: the KPI count-up now uses `requestAnimationFrame` and the Web
+    Animations API.
+  - Responses are gzipped (Server-Sent Events excluded).
+  - The two fonts are self-hosted and preloaded, replacing Google Fonts, and the CSP now
+    allows fonts from our own origin only.
+  - The session request starts while page code is still loading, and icons are grouped
+    into one chunk.
+
+### Tested
+
+- API (7 new tests):
+  - AI rate limits: per user for search, a teammate keeps their own allowance, upload
+    confirmations count, and report generation is limited per organisation with a
+    readable 429.
+  - Serving the web app: absolute preview URLs, SPA fallback, `noindex` on share pages,
+    gzipped long-cached assets, and unknown `/api` routes still return 404.
+- Web (4 new tests): failed actions toast unless they handle their own errors, the
+  network-error message, and aborted requests stay aborted. Dashboard tests now wait for
+  the lazily loaded charts.
+- **Seed dry run** against the e2e server (real API and database, fake Cloudinary and
+  Gemini): all 16 uploads go through the pipeline, and exactly the planted problems are
+  caught:
+  - Exact duplicate: flagged at 0; its original is approved.
+  - Near-duplicate: distance 0/64.
+  - Off-site photo: 41.1 km from the nearest site.
+  - No-EXIF photo: 85, "missing metadata".
+  - Documentation gaps: Bhondsi and Damdama.
+
+  One report is generated. Screenshots of the dashboard, evidence grid, compare view and
+  review queue with the real photos looked right.
+
+- **Lighthouse on the dashboard**, signed in, measured against a local production build
+  with seeded data:
+
+  | Profile | Performance  | Accessibility | Best practices | SEO |
+  | ------- | ------------ | ------------- | -------------- | --- |
+  | Desktop | 94           | 100           | 96             | 92  |
+  | Mobile  | 49 (from 30) | 100           | 96             | 92  |
+
+- Full gate: lint, typecheck, shared (200 tests, 100% coverage), API (126), web (53),
+  build, and e2e 8/8 on two consecutive runs.
+- What the manual checks found and fixed:
+  - The e2e fake's 8×8 average hash reported a false near-duplicate between two unrelated
+    demo photos. The fake now uses a DCT perceptual hash, like Cloudinary's, and serves
+    downsized thumbnails, so local measurements aren't distorted by full-size images.
+
+### Known issues
+
+- **Deploy is not done yet.** It needs the Cloudinary, Gemini and Neon credentials and
+  access to Render (see below). The live pipeline test, the seed against real
+  Cloudinary/Gemini, and the Playwright run against `BASE_URL` all wait on this.
+- **Mobile performance is 49** under Lighthouse's simulated slow 4G and 4× CPU throttling.
+  Most of what remains is React rendering a signed-in, data-heavy page on the throttled
+  CPU. Getting it much higher would need server rendering of the first view. Desktop
+  scores 94.
+- The near-duplicate in the demo relies on Cloudinary's real pHash treating a half-size,
+  recompressed copy as close (it's 0/64 with the fake). Confirm this on the first real
+  seed.
+- Still open from earlier phases: non-Latin text in PDFs, re-embedding on rename, and
+  paging for the map and timeline.

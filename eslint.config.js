@@ -27,11 +27,19 @@ export default tseslint.config(
     },
   },
   {
-    files: ['apps/api/**/*.{ts,tsx}', 'packages/**/*.ts', '*.config.{js,ts}', 'apps/*/*.config.ts'],
+    files: [
+      'apps/api/**/*.{ts,tsx}',
+      'packages/**/*.ts',
+      'scripts/**/*.ts',
+      'apps/web/scripts/**/*.mjs',
+      '*.config.{js,ts}',
+      'apps/*/*.config.ts',
+    ],
     languageOptions: { globals: globals.node },
   },
   {
-    files: ['apps/api/src/db/migrate-cli.ts'],
+    // Command-line tools report progress on stdout.
+    files: ['apps/api/src/db/migrate-cli.ts', 'scripts/**/*.ts', 'apps/web/scripts/**/*.mjs'],
     rules: { 'no-console': 'off' },
   },
   {

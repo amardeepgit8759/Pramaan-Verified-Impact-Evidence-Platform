@@ -1,6 +1,6 @@
 import type { AssetDetail, Site } from '@pramaan/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, MotionConfig } from 'framer-motion';
 import { Camera, CheckCircle2, CircleAlert, ImageUp, RotateCw, X } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
 import { BandBadge } from '@/components/band-badge';
@@ -117,111 +117,117 @@ export function Uploader({ projectId, sites }: { projectId: string; sites: Site[
   const finished = items.filter((i) => i.stage === 'done' || i.stage === 'error');
 
   return (
-    <section aria-label="Upload evidence" className="space-y-4">
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragging(false);
-          enqueue(e.dataTransfer.files);
-        }}
-        className={cn(
-          'flex flex-col items-center gap-4 rounded-2xl border-2 border-dashed bg-card/60 px-6 py-8 text-center transition-colors duration-150',
-          dragging && 'border-primary bg-verified-soft/60',
-        )}
-      >
-        <span className="grid size-12 place-items-center rounded-2xl bg-verified-soft text-verified">
-          <ImageUp className="size-6" aria-hidden />
-        </span>
-        <div>
-          <p className="font-medium">Drop photos or videos here</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Each file is checked for copies, location and date as soon as it lands.
-          </p>
-        </div>
-        <div className="flex flex-wrap justify-center gap-2">
-          <Button type="button" onClick={() => cameraInput.current?.click()} className="sm:hidden">
-            <Camera /> Take a photo
-          </Button>
-          <Button type="button" variant="outline" onClick={() => fileInput.current?.click()}>
-            <ImageUp /> Choose files
-          </Button>
-        </div>
-        <div className="grid w-full max-w-xs gap-1.5 text-left">
-          <Label id={siteLabelId}>Site</Label>
-          <Select value={siteId} onValueChange={setSiteId}>
-            <SelectTrigger aria-labelledby={siteLabelId}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={AUTO_SITE}>Match from each photo’s GPS</SelectItem>
-              {sites.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <input
-          ref={fileInput}
-          type="file"
-          accept="image/*,video/*"
-          multiple
-          hidden
-          onChange={(e) => {
-            if (e.target.files) enqueue(e.target.files);
-            e.target.value = '';
+    <MotionConfig reducedMotion="user">
+      <section aria-label="Upload evidence" className="space-y-4">
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
           }}
-        />
-        <input
-          ref={cameraInput}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          hidden
-          onChange={(e) => {
-            if (e.target.files) enqueue(e.target.files);
-            e.target.value = '';
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            enqueue(e.dataTransfer.files);
           }}
-        />
-      </div>
-
-      {items.length > 0 && (
-        <div className="rounded-2xl border bg-card shadow-soft">
-          <div className="flex items-center justify-between border-b px-4 py-3 text-sm">
-            <span className="font-medium" aria-live="polite">
-              {finished.length} of {items.length} processed
-            </span>
-            {finished.length === items.length && (
-              <Button variant="ghost" size="sm" onClick={() => setItems([])}>
-                <X /> Clear
-              </Button>
-            )}
+          className={cn(
+            'flex flex-col items-center gap-4 rounded-2xl border-2 border-dashed bg-card/60 px-6 py-8 text-center transition-colors duration-150',
+            dragging && 'border-primary bg-verified-soft/60',
+          )}
+        >
+          <span className="grid size-12 place-items-center rounded-2xl bg-verified-soft text-verified">
+            <ImageUp className="size-6" aria-hidden />
+          </span>
+          <div>
+            <p className="font-medium">Drop photos or videos here</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Each file is checked for copies, location and date as soon as it lands.
+            </p>
           </div>
-          <ul className="max-h-80 divide-y overflow-y-auto">
-            <AnimatePresence initial={false}>
-              {items.map((item) => (
-                <motion.li
-                  key={item.id}
-                  layout
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.15 }}
-                  className="flex items-center gap-3 px-4 py-3"
-                >
-                  <UploadRow item={item} onRetry={() => retry(item)} />
-                </motion.li>
-              ))}
-            </AnimatePresence>
-          </ul>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button
+              type="button"
+              onClick={() => cameraInput.current?.click()}
+              className="sm:hidden"
+            >
+              <Camera /> Take a photo
+            </Button>
+            <Button type="button" variant="outline" onClick={() => fileInput.current?.click()}>
+              <ImageUp /> Choose files
+            </Button>
+          </div>
+          <div className="grid w-full max-w-xs gap-1.5 text-left">
+            <Label id={siteLabelId}>Site</Label>
+            <Select value={siteId} onValueChange={setSiteId}>
+              <SelectTrigger aria-labelledby={siteLabelId}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={AUTO_SITE}>Match from each photo’s GPS</SelectItem>
+                {sites.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/*,video/*"
+            multiple
+            hidden
+            onChange={(e) => {
+              if (e.target.files) enqueue(e.target.files);
+              e.target.value = '';
+            }}
+          />
+          <input
+            ref={cameraInput}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            hidden
+            onChange={(e) => {
+              if (e.target.files) enqueue(e.target.files);
+              e.target.value = '';
+            }}
+          />
         </div>
-      )}
-    </section>
+
+        {items.length > 0 && (
+          <div className="rounded-2xl border bg-card shadow-soft">
+            <div className="flex items-center justify-between border-b px-4 py-3 text-sm">
+              <span className="font-medium" aria-live="polite">
+                {finished.length} of {items.length} processed
+              </span>
+              {finished.length === items.length && (
+                <Button variant="ghost" size="sm" onClick={() => setItems([])}>
+                  <X /> Clear
+                </Button>
+              )}
+            </div>
+            <ul className="max-h-80 divide-y overflow-y-auto">
+              <AnimatePresence initial={false}>
+                {items.map((item) => (
+                  <motion.li
+                    key={item.id}
+                    layout
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="flex items-center gap-3 px-4 py-3"
+                  >
+                    <UploadRow item={item} onRetry={() => retry(item)} />
+                  </motion.li>
+                ))}
+              </AnimatePresence>
+            </ul>
+          </div>
+        )}
+      </section>
+    </MotionConfig>
   );
 }
 

@@ -55,9 +55,19 @@ export const envSchema = z.object({
   /** Stricter limit for sign-in, sign-up and password-set, per client IP. */
   AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
+  /** Per user: search queries and upload confirmations, which call Gemini. */
+  AI_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  AI_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(120),
+  /** Per organisation: report generation. */
+  REPORT_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(3_600_000),
+  REPORT_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
 
   /** Directory holding the built web app; served by the API when set. */
   WEB_DIST_DIR: optional,
+  /** Public origin for absolute links in page metadata, e.g. https://pramaan.onrender.com. */
+  PUBLIC_URL: z.url().optional(),
+  /** Set by Render; used when PUBLIC_URL isn't. */
+  RENDER_EXTERNAL_URL: z.url().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -1,0 +1,17 @@
+{
+  "name": "@pramaan/scripts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "seed": "tsx --env-file-if-exists=../.env seed-demo.ts",
+    "images": "tsx prepare-demo-images.ts"
+  },
+  "devDependencies": {
+    "@types/piexifjs": "^1.0.0",
+    "jpeg-js": "^0.4.4",
+    "piexifjs": "^1.0.6",
+    "tsx": "^4.23.15"
+  }
+}

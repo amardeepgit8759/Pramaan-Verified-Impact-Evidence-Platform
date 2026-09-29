@@ -1,0 +1,38 @@
+# Render Blueprint: one Docker web service. The API serves the built web app from the
+# same origin. The database is Neon (Postgres + pgvector), so DATABASE_URL is entered
+# when the Blueprint is created; migrations run automatically when the app starts.
+services:
+  - type: web
+    name: pramaan
+    runtime: docker
+    plan: free
+    # Closest Render region to India; create the Neon project in AWS Singapore too.
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      # Neon connection string (direct, not pooled), ending in ?sslmode=verify-full
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      # Model ids live in configuration, not code (checked against Google's docs).
+      - key: GEMINI_VISION_MODEL
+        value: gemini-3.5-flash
+      - key: GEMINI_REPORT_MODEL
+        value: gemini-3.8-flash
+      - key: GEMINI_EMBEDDING_MODEL
+        value: gemini-embedding-2
+      - key: TAGGING_PROVIDER
+        value: cloudinary
+      - key: LOG_LEVEL
+        value: info
