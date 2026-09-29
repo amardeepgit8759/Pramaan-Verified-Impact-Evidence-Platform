@@ -8,5 +8,5 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "e2e", "*.config.ts"]
+  "include": ["src", "test", "e2e", "*.config.ts"]
 }

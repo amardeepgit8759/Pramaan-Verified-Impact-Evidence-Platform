@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { CompareSlider } from '@/components/compare-slider';
-import { adminSession, mockApi, renderRoute } from '@/test-utils';
+import { adminSession, mockApi, renderRoute } from '../utils';
 
 const project: ProjectSummary = {
   id: '33333333-3333-4333-8333-333333333333',

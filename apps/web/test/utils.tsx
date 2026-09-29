@@ -3,9 +3,9 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { vi } from 'vitest';
-import { createQueryClient } from './lib/query-client';
-import { ThemeProvider } from './lib/theme';
-import { routes } from './router';
+import { createQueryClient } from '@/lib/query-client';
+import { ThemeProvider } from '@/lib/theme';
+import { routes } from '@/router';
 
 type Reply = [status: number, body?: unknown];
 

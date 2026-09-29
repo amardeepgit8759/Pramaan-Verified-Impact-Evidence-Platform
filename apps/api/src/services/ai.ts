@@ -9,7 +9,7 @@ export interface VisionResult {
 }
 
 /**
- * The only way the API talks to Gemini. Tests replace it with a fake; the real
+ * The only way the API talks to Gemini. Tests replace it with a test double; the real
  * implementation is below. Model ids come from env, never from code.
  */
 export interface AiClient {

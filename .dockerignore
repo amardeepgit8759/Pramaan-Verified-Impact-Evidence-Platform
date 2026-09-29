@@ -8,3 +8,5 @@
 .env.*
 !.env.example
 *.log
+# Demo photos are only for the seed script; the image never needs them.
+demo-data

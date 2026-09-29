@@ -39,4 +39,4 @@ export async function verifyPassword(password: string, stored: string): Promise<
 }
 
 /** Hash of a random password, used to keep login timing the same for unknown emails. */
-export const DUMMY_HASH = await hashPassword(randomBytes(16).toString('hex'));
+export const TIMING_DECOY_HASH = await hashPassword(randomBytes(16).toString('hex'));

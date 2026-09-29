@@ -1,8 +1,8 @@
 import type { MutationOptions } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { api, ApiError } from './api';
-import { createQueryClient } from './query-client';
+import { api, ApiError } from '@/lib/api';
+import { createQueryClient } from '@/lib/query-client';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 

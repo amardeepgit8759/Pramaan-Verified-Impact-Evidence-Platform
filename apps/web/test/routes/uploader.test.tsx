@@ -1,7 +1,7 @@
 import type { AssetDetail, ProjectSummary } from '@pramaan/shared';
 import { fireEvent, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { adminSession, mockApi, renderRoute, viewerSession } from '@/test-utils';
+import { adminSession, mockApi, renderRoute, viewerSession } from '../utils';
 
 const project: ProjectSummary = {
   id: '33333333-3333-4333-8333-333333333333',

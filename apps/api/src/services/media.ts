@@ -36,7 +36,7 @@ export class TaggingUnavailableError extends Error {
 }
 
 /**
- * The only way the API talks to Cloudinary. Tests replace it with a fake; the real
+ * The only way the API talks to Cloudinary. Tests replace it with a test double; the real
  * implementation is below.
  */
 export interface MediaStore {

@@ -32,9 +32,10 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
-    include: ['src/**/*.test.{ts,tsx}'],
-    setupFiles: ['src/test-setup.ts'],
-    // Route tests render the whole app in jsdom; under a parallel run they can exceed 5 s.
-    testTimeout: 15_000,
+    include: ['test/**/*.test.{ts,tsx}'],
+    setupFiles: ['test/setup.ts'],
+    // Route tests render the whole app in jsdom, compiling each lazy page on first use;
+    // under a parallel run the first test in a file can take a while.
+    testTimeout: 30_000,
   },
 });

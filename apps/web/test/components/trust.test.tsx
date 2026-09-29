@@ -2,8 +2,8 @@ import type { MatchedAsset, TrustCheck } from '@pramaan/shared';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { TrustBreakdown } from './trust-breakdown';
-import { TrustGauge } from './trust-gauge';
+import { TrustBreakdown } from '@/components/trust/trust-breakdown';
+import { TrustGauge } from '@/components/trust/trust-gauge';
 
 const MATCH_ID = '66666666-6666-4666-8666-666666666666';
 

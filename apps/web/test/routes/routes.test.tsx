@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { BandBadge } from '@/components/band-badge';
-import { adminSession, mockApi, renderRoute, viewerSession } from '@/test-utils';
+import { adminSession, mockApi, renderRoute, viewerSession } from '../utils';
 
 const emptyStats = { totalAssets: 0, verifiedAssets: 0, projects: 0, sites: 0, reports: 0 };
 

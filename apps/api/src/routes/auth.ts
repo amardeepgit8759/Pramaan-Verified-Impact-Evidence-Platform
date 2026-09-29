@@ -4,7 +4,7 @@ import { and, eq, gt, isNull } from 'drizzle-orm';
 import { Router } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { currentUser, requireAuth } from '../auth/middleware.js';
-import { DUMMY_HASH, hashPassword, verifyPassword } from '../auth/password.js';
+import { TIMING_DECOY_HASH, hashPassword, verifyPassword } from '../auth/password.js';
 import {
   clearSessionCookie,
   setSessionCookie,
@@ -84,7 +84,7 @@ export function authRouter(db: Db, env: Env) {
       .from(users)
       .where(and(eq(users.email, input.email), isNull(users.deactivatedAt)));
     // Always run one hash comparison so response time doesn't reveal which emails exist.
-    const ok = await verifyPassword(input.password, user?.passwordHash ?? DUMMY_HASH);
+    const ok = await verifyPassword(input.password, user?.passwordHash ?? TIMING_DECOY_HASH);
     if (!user?.passwordHash || !ok) {
       throw new HttpError(401, 'That email and password combination is not right');
     }

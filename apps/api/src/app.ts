@@ -33,9 +33,9 @@ export interface AppDeps {
   env: Env;
   db: Db;
   logger: Logger;
-  /** Cloudinary; a fake in tests. */
+  /** Cloudinary; a test double in tests. */
   media: MediaStore;
-  /** Gemini; a fake in tests. */
+  /** Gemini; a test double in tests. */
   ai: AiClient;
   /** Server-Sent Events fan-out. */
   live: LiveHub;
