@@ -1,5 +1,5 @@
 import type { AssetDetail, ProjectSummary } from '@pramaan/shared';
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { adminSession, mockApi, renderRoute, viewerSession } from '../utils';
 
@@ -103,7 +103,8 @@ describe('evidence uploader', () => {
     fireEvent.drop(zone, { dataTransfer: { files: [photo()] } });
 
     const row = (await screen.findByText('Matched to Village Rampur')).closest('li')!;
-    expect(within(row).getByText('100')).toBeVisible();
+    // The score fades in: Framer Motion sets the final opacity a frame after mounting.
+    await waitFor(() => expect(within(row).getByText('100')).toBeVisible());
     expect(within(row).getByText('Verified')).toBeVisible();
 
     // The browser sends the file with the server's signed params, untouched.
@@ -124,7 +125,9 @@ describe('evidence uploader', () => {
       'div',
     )!.parentElement!;
     fireEvent.drop(zone, { dataTransfer: { files: [photo()] } });
-    expect(await screen.findByText('This upload doesn’t belong to this project')).toBeVisible();
+    await waitFor(() =>
+      expect(screen.getByText('This upload doesn’t belong to this project')).toBeVisible(),
+    );
     expect(screen.getByRole('button', { name: /Retry/ })).toBeVisible();
   });
 

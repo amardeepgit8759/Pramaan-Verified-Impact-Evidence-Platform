@@ -38,6 +38,8 @@ export function describeEvent({ type, payload }: DescribableEvent): string {
       const verb = payload.decision === 'reject' ? 'rejected' : 'approved';
       return `${actor ?? 'An admin'} ${verb} an asset${inProject}`;
     }
+    case 'asset.enriched':
+      return `A photo${inProject} was tagged and described`;
     case 'report.created':
       return payload.status === 'failed'
         ? `A report couldn’t be generated${inProject}`

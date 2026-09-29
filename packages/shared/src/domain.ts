@@ -35,6 +35,7 @@ export const EVENT_TYPES = [
   'asset.created',
   'asset.rescored',
   'asset.reviewed',
+  'asset.enriched',
   'report.created',
   'settings.updated',
   'site.gap_changed',

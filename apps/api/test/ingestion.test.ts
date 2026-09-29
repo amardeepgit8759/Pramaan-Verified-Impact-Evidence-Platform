@@ -8,6 +8,7 @@ import {
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { assets, events } from '../src/db/schema.js';
+import { enrichmentIdle } from '../src/services/ingestion.js';
 import { resetDb } from './fixtures.js';
 import { addMember, createTestApp, signUp } from './helpers.js';
 
@@ -193,6 +194,51 @@ describe('POST /api/assets/confirm', () => {
     expect(asset).toMatchObject({ taggingProvider: 'none', tags: [], trustBand: 'verified' });
     const [row] = await db.select().from(assets).where(eq(assets.id, asset.id));
     expect(row!.embedding).toBeNull();
+  });
+
+  it('scores and responds before tagging, then adds tags and a caption in the background', async () => {
+    const g = createTestApp({ TAGGING_PROVIDER: 'gemini' }, { awaitEnrichment: false });
+    let release!: () => void;
+    g.ai.visionGate = new Promise((resolve) => (release = resolve));
+    try {
+      const { agent, orgId } = await signUp(g.app);
+      const { body: p } = await agent
+        .post('/api/projects')
+        .send({ name: 'P', startDate: '2024-01-01' });
+      const publicId = `pramaan/${orgId}/${p.id}/x.jpg`;
+      g.media.addUpload({ publicId, metadata: goodExif });
+      const res = await agent
+        .post('/api/assets/confirm')
+        .send({ publicId, projectId: p.id })
+        .expect(201);
+      // Gemini hasn't answered yet, but the upload is stored and scored.
+      expect(res.body).toMatchObject({ tags: [], caption: null, taggingProvider: 'none' });
+      expect(res.body.trustScore).toEqual(expect.any(Number));
+
+      release();
+      await enrichmentIdle();
+      const after = await agent.get(`/api/assets/${res.body.id}`).expect(200);
+      expect(after.body).toMatchObject({
+        taggingProvider: 'gemini',
+        caption: 'A hand pump in a village.',
+        tags: ['water pump'],
+        trustScore: res.body.trustScore,
+      });
+      const [row] = await g.db.select().from(assets).where(eq(assets.id, res.body.id));
+      expect(row!.embedding).toHaveLength(768);
+
+      // Screens hear about it over the live stream; the activity feed stays about people.
+      const types = (await g.db.select().from(events).where(eq(events.orgId, orgId))).map(
+        (e) => e.type,
+      );
+      expect(types.indexOf('asset.enriched')).toBeGreaterThan(types.indexOf('asset.created'));
+      const feed = await agent.get('/api/events').expect(200);
+      expect(feed.body.events.map((e: { type: string }) => e.type)).toEqual(['asset.created']);
+    } finally {
+      release();
+      await enrichmentIdle();
+      await g.close();
+    }
   });
 
   it('calls a photo without EXIF unverified, not fake', async () => {

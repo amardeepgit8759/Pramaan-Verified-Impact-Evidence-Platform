@@ -98,6 +98,8 @@ export class FakeMediaStore implements MediaStore {
 export class FakeAiClient implements AiClient {
   vision: VisionResult | Error = { caption: 'A hand pump in a village.', tags: ['water pump'] };
   embedError: Error | null = null;
+  /** When set, describing an image waits for it, so tests can see an upload before enrichment. */
+  visionGate: Promise<void> | null = null;
   describedUrls: string[] = [];
   embeddedTexts: string[] = [];
   /** The report the "model" writes: a fixed draft, an error, or (by default) one built from the facts. */
@@ -115,6 +117,7 @@ export class FakeAiClient implements AiClient {
 
   async describeImage(imageUrl: string) {
     this.describedUrls.push(imageUrl);
+    if (this.visionGate) await this.visionGate;
     if (this.vision instanceof Error) throw this.vision;
     return this.vision;
   }

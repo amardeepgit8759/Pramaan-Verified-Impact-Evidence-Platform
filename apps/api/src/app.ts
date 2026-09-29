@@ -39,10 +39,12 @@ export interface AppDeps {
   ai: AiClient;
   /** Server-Sent Events fan-out. */
   live: LiveHub;
+  /** Tests: finish tagging and captioning before an upload confirm responds. */
+  awaitEnrichment?: boolean;
 }
 
-export function createApp({ env, db, logger, media, ai, live }: AppDeps) {
-  const ingest = { db, env, media, ai, logger };
+export function createApp({ env, db, logger, media, ai, live, awaitEnrichment }: AppDeps) {
+  const ingest = { db, env, media, ai, logger, live, awaitEnrichment };
   const reportDeps = { db, ai, media, logger, live };
   const app = express();
   app.disable('x-powered-by');

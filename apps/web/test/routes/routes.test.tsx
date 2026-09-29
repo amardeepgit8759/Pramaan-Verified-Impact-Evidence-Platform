@@ -27,7 +27,10 @@ describe('landing page', () => {
   it('hides the stats strip when the platform has no evidence yet', async () => {
     mockApi({ 'GET /api/auth/me': [401, {}], 'GET /api/public/stats': [200, emptyStats] });
     renderRoute('/');
-    expect(await screen.findByRole('heading', { name: /Proof, not promises/ })).toBeVisible();
+    // Framer Motion applies the faded-in opacity a frame after mounting: wait for it.
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /Proof, not promises/ })).toBeVisible(),
+    );
     await waitFor(() => expect(screen.queryByText(/photos and videos verified/)).toBeNull());
   });
 
@@ -40,7 +43,7 @@ describe('landing page', () => {
       ],
     });
     renderRoute('/');
-    expect(await screen.findByText('photos and videos verified')).toBeVisible();
+    await waitFor(() => expect(screen.getByText('photos and videos verified')).toBeVisible());
     expect(screen.getByText((1234).toLocaleString())).toBeVisible();
     expect(screen.getByText('field site')).toBeVisible();
   });

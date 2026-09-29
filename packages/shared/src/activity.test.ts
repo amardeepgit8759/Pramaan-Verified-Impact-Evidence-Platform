@@ -29,6 +29,7 @@ describe('describeEvent', () => {
       'Asha approved an asset in Borewell Project – Phase 1',
     ],
     ['asset.reviewed', { decision: 'reject' }, 'An admin rejected an asset'],
+    ['asset.enriched', P, 'A photo in Borewell Project – Phase 1 was tagged and described'],
     ['report.created', P, 'New report generated in Borewell Project – Phase 1'],
     [
       'report.created',

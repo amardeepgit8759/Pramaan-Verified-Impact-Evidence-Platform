@@ -10,16 +10,20 @@ import { FakeAiClient, FakeMediaStore } from './fakes.js';
 
 /**
  * Build the real app against the test database, with Cloudinary and Gemini replaced by
- * fakes at the service boundary. Call `close()` in afterAll.
+ * fakes at the service boundary. Call `close()` in afterAll. Uploads finish tagging and
+ * captioning before confirm responds unless `awaitEnrichment` is false, as in production.
  */
-export function createTestApp(overrides: Partial<Record<string, string>> = {}) {
+export function createTestApp(
+  overrides: Partial<Record<string, string>> = {},
+  { awaitEnrichment = true }: { awaitEnrichment?: boolean } = {},
+) {
   const env = loadEnv({ ...process.env, ...overrides });
   const { db, pool } = createDb(env.DATABASE_URL);
   const media = new FakeMediaStore();
   const ai = new FakeAiClient();
   const logger = createLogger(env);
   const live = new LiveHub(db, logger, { heartbeatMs: 200, pollMs: 100 });
-  const app = createApp({ env, db, logger, media, ai, live });
+  const app = createApp({ env, db, logger, media, ai, live, awaitEnrichment });
   return {
     app,
     db,

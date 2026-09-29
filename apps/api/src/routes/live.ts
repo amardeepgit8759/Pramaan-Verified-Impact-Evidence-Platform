@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, lt, ne, sql } from 'drizzle-orm';
 import { Router } from 'express';
 import { z } from 'zod';
 import { currentUser, requireAuth } from '../auth/middleware.js';
@@ -52,6 +52,7 @@ export function liveRouter(db: Db, live: LiveHub, media: MediaStore) {
       .where(
         and(
           eq(events.orgId, orgId),
+          ne(events.type, 'asset.enriched'),
           q.projectId ? sql`${events.payload}->>'projectId' = ${q.projectId}` : undefined,
           q.before ? lt(events.id, q.before) : undefined,
         ),

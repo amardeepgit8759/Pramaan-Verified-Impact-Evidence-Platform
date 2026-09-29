@@ -484,3 +484,14 @@ structured-output, image and embedding docs, on 2026-09-27/28.
   `gemini-3.5-flash-lite`, then `gemini-2.5-flash`; reports to `gemini-3.7-flash`, then
   `gemini-2.5-flash`. The primaries stay as documented. The fallbacks are configuration,
   so they can change without a deploy of new code.
+- **Tags, captions and search embeddings are added after an upload is scored, not before.**
+  The first run of the browser tests against real services failed 4 of 8, because upload
+  confirmation waited for Gemini and Gemini was busy. The Trust Score uses none of the AI's
+  output (only etag, pHash, EXIF, sites and dates), so confirm now stores and scores the
+  file and answers straight away. Tagging, the caption and the embedding follow in the
+  background and are saved with an `asset.enriched` event. The live stream carries that
+  event so open screens refresh search, evidence and the review queue. The activity feed
+  leaves it out, because it is housekeeping, not something a person did. If enrichment
+  fails, the file keeps its score and stays untagged, and the error is logged. API tests
+  wait for enrichment (`awaitEnrichment`) so their assertions stay simple; one test covers
+  the real order with the AI held back. The browser-test server and production don't wait.

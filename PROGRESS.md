@@ -629,3 +629,28 @@ Still to do once the credentials arrive:
 - The README screenshots were retaken on this real data, and the README now shows a
   before/after composite rendered by Cloudinary from a single URL. The PDF with real
   Cloudinary stills rendered in 1.6 s (5 pages).
+
+### Upload scoring no longer waits on Gemini (2026-09-29)
+
+- **Why:** the first `BASE_URL=… pnpm e2e` run against the real-keys server failed 4 of 8,
+  because upload confirmation was slow while Gemini was overloaded.
+- **Built:**
+  - Confirm now scores and stores the file and responds without calling the AI.
+  - Tags, the caption and the embedding follow in the background, as an `asset.enriched`
+    event on the live stream. It is kept out of the activity feed.
+  - See DECISIONS for the details.
+- **Tested:**
+  - A new API test holds Gemini back. It checks that confirm returns a score with no tags,
+    then that tags, the caption, the embedding and the event arrive afterwards, and that
+    the feed leaves the event out.
+  - API: 132 tests. Local e2e: 8/8.
+  - Real services: **8/8 against real Cloudinary and Gemini** (was 4/8). Confirm took 1.1–3.3 s,
+    while Gemini was over capacity 22 times during the run and the fallback models covered
+    each one.
+- **Test fixes found by the real run and under load:**
+  - The report e2e test waited for `Ready` as a substring. The "…when it's ready" toast
+    matched it, which only showed once a real model took a minute to write. It is now an
+    exact match.
+  - Three web unit tests checked visibility of elements that fade in with Framer Motion
+    before the final opacity was applied. They failed only when the suites ran in parallel.
+    They now wait for it.

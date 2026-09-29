@@ -9,6 +9,7 @@ import {
   RefreshCw,
   Settings2,
   ShieldAlert,
+  Tags,
   type LucideIcon,
 } from 'lucide-react';
 import { Link } from 'react-router';
@@ -22,6 +23,7 @@ const EVENT_ICON: Record<LiveEvent['type'], LucideIcon> = {
   'asset.created': ImageUp,
   'asset.rescored': RefreshCw,
   'asset.reviewed': CircleCheck,
+  'asset.enriched': Tags,
   'report.created': FileText,
   'settings.updated': Settings2,
   'site.gap_changed': MapPinOff,

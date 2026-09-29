@@ -28,6 +28,13 @@ export function keysFor(event: LiveEvent): QueryKey[] {
         ['review-queue'],
         ...(payload.assetId ? [queryKeys.asset(payload.assetId)] : []),
       ];
+    case 'asset.enriched':
+      return [
+        ['search'],
+        ['review-queue'],
+        queryKeys.projects,
+        ...(payload.assetId ? [queryKeys.asset(payload.assetId)] : []),
+      ];
     case 'report.created':
       return [
         ...common,

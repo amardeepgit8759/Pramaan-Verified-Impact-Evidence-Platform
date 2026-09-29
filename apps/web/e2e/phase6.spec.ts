@@ -5,6 +5,9 @@ test('generate a cited report, export it, and share the project with a funder', 
   page,
   browser,
 }) => {
+  // Against a deployment, real Gemini writes the report: allow for that, and assert on
+  // structure rather than wording.
+  test.setTimeout(180_000);
   await signUp(page);
   const project = await (
     await page.request.post('/api/projects', {
@@ -34,20 +37,17 @@ test('generate a cited report, export it, and share the project with a funder', 
   await expect(page.getByText('No reports yet')).toBeVisible();
   await page.getByRole('button', { name: /Generate report/ }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Generate' }).click();
-  await expect(page.getByText('Ready')).toBeVisible({ timeout: 15_000 });
-  await expect(
-    page.getByText(/2 cited statements · 2 evidence files · 1 uncited removed/),
-  ).toBeVisible();
+  // Exact: the "Writing your report… when it’s ready" toast also contains the word.
+  await expect(page.getByText('Ready', { exact: true })).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByText(/\d+ cited statements · [12] evidence files?/)).toBeVisible();
 
   // Every sentence opens the photos it cites.
   await page.getByRole('link', { name: 'Read report' }).click();
-  await page
-    .getByRole('button', { name: /2 verified evidence files were captured at Village Rampur/ })
-    .click();
+  await page.locator('ol button').first().click();
   const panel = page.getByRole('dialog');
-  await expect(panel.getByText('Statement 1 cites 2 evidence files.')).toBeVisible();
-  // 2024 photos uploaded today lose 10 for a late upload: both score 90.
-  await expect(panel.getByText('Trust Score 90')).toHaveCount(2);
+  await expect(panel.getByText(/^Statement 1 cites [12] evidence files?\.$/)).toBeVisible();
+  // 2024 photos uploaded today lose 10 for a late upload: each cited photo scores 90.
+  await expect(panel.getByText('Trust Score 90').first()).toBeVisible();
   await page.keyboard.press('Escape');
 
   // Exports.
@@ -70,7 +70,8 @@ test('generate a cited report, export it, and share the project with a funder', 
   await expect(funder.getByRole('heading', { level: 1, name: 'Borewell Project' })).toBeVisible();
   await expect(funder.getByText('Verified evidence files', { exact: true })).toBeVisible();
   await funder.getByRole('link', { name: 'Read report' }).click();
-  await expect(funder.getByRole('heading', { name: 'Evidence by site' })).toBeVisible();
+  await expect(funder.getByRole('heading', { name: 'Evidence annex' })).toBeVisible();
+  await expect(funder.locator('ol button').first()).toBeVisible();
 
   // Revoking takes effect immediately.
   await page.getByRole('button', { name: 'Revoke link' }).click();

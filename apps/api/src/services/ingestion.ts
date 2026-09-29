@@ -30,6 +30,10 @@ export interface IngestDeps {
   media: MediaStore;
   ai: AiClient;
   logger: Logger;
+  /** Streams asset.enriched once tags and a caption are added in the background. */
+  live?: { poke(): void };
+  /** Tests: finish tagging and captioning before confirm responds. */
+  awaitEnrichment?: boolean;
 }
 
 /** Every upload for a project lands under pramaan/{orgId}/{projectId}. */
@@ -136,18 +140,6 @@ export async function confirmUpload(
     site = nearestSiteWithin({ lat: capture.lat, lng: capture.lng }, projectSites)?.site ?? null;
   }
 
-  const { tags, caption, provider } = await tagAndCaption(deps, resource);
-  const embedding = await embedSafely(
-    deps,
-    buildEmbeddingText({
-      caption,
-      tags,
-      projectName: project.name,
-      siteName: site?.name ?? null,
-      capturedAt: capture.capturedAt,
-    }),
-  );
-
   const settings = await getOrgSettings(db, user.orgId);
   const candidates = await findDuplicateCandidates(db, {
     orgId: user.orgId,
@@ -202,10 +194,11 @@ export async function confirmUpload(
         lat: capture.lat,
         lng: capture.lng,
         exif: capture.sources,
-        tags,
-        taggingProvider: provider,
-        caption,
-        embedding,
+        // Filled in by enrichAsset once the upload has been scored.
+        tags: [],
+        taggingProvider: 'none',
+        caption: null,
+        embedding: null,
         trustScore: score.score,
         trustBand: score.band,
         uploadedAt: resource.createdAt,
@@ -231,7 +224,6 @@ export async function confirmUpload(
       actorName: user.name,
       score: score.score,
       band: score.band,
-      taggingProvider: provider,
     });
     return row!.id;
   });
@@ -275,5 +267,75 @@ export async function confirmUpload(
   }
 
   await refreshGaps(db, user.orgId);
+
+  const enrichment = enrichAsset(deps, {
+    assetId,
+    orgId: user.orgId,
+    project,
+    siteName: site?.name ?? null,
+    resource,
+    capturedAt: capture.capturedAt,
+  });
+  inFlight.add(enrichment);
+  void enrichment.finally(() => inFlight.delete(enrichment));
+  if (deps.awaitEnrichment) await enrichment;
   return { assetId, created: true };
+}
+
+const inFlight = new Set<Promise<void>>();
+
+/** Resolves when every background enrichment started so far has finished (for tests). */
+export async function enrichmentIdle() {
+  await Promise.all(inFlight);
+}
+
+/**
+ * Tags, caption and search embedding, added after the asset is scored and stored. The
+ * Trust Score never depends on them, so an upload never waits on the AI (Gemini can take
+ * a while, or be busy). Never throws; a failure leaves the asset untagged, and search
+ * still finds it by keyword once tagged some other way.
+ */
+async function enrichAsset(
+  deps: IngestDeps,
+  a: {
+    assetId: string;
+    orgId: string;
+    project: { id: string; name: string };
+    siteName: string | null;
+    resource: CloudinaryResource;
+    capturedAt: Date | null;
+  },
+) {
+  try {
+    const { tags, caption, provider } = await tagAndCaption(deps, a.resource);
+    const embedding = await embedSafely(
+      deps,
+      buildEmbeddingText({
+        caption,
+        tags,
+        projectName: a.project.name,
+        siteName: a.siteName,
+        capturedAt: a.capturedAt,
+      }),
+    );
+    await deps.db.transaction(async (tx) => {
+      const updated = await tx
+        .update(assets)
+        .set({ tags, caption, taggingProvider: provider, embedding, updatedAt: new Date() })
+        .where(eq(assets.id, a.assetId))
+        .returning({ id: assets.id });
+      // Deleted in the meantime: nothing to announce.
+      if (updated.length === 0) return;
+      await recordEvent(tx, a.orgId, 'asset.enriched', {
+        assetId: a.assetId,
+        projectId: a.project.id,
+        projectName: a.project.name,
+        taggingProvider: provider,
+      });
+    });
+  } catch (err) {
+    deps.logger.error({ err, assetId: a.assetId }, 'Adding tags and a caption failed');
+  } finally {
+    deps.live?.poke();
+  }
 }
