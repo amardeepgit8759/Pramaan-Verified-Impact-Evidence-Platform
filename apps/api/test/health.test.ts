@@ -19,6 +19,8 @@ describe('GET /api/health', () => {
     const res = await request(app).get('/api/health');
     expect(res.headers['content-security-policy']).toContain('https://res.cloudinary.com');
     expect(res.headers['x-powered-by']).toBeUndefined();
+    // Map tiles need a Referer; other sites get the origin only, never a share token path.
+    expect(res.headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
   });
 });
 

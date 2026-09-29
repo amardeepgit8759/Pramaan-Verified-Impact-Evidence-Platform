@@ -1,7 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node"]
+    "types": ["node"],
+    // Only the PDF report template uses JSX (@react-pdf/renderer).
+    "jsx": "react-jsx"
   },
   "include": ["src", "test", "*.config.ts"]
 }

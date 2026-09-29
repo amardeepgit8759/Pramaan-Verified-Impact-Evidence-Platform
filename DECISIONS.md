@@ -360,3 +360,64 @@ structured-output, image and embedding docs, on 2026-09-27/28.
 - **Site file counts use a join, not a correlated subquery.** Drizzle leaves column names
   unqualified in a single-table select, so a subquery that refers to the outer table's
   column silently binds to its own. Aggregates over related tables are written as joins.
+
+## Phase 6: reports, exports, sharing (2026-09-28)
+
+- **Reports are generated in the background.** `POST` replies 202 with a "generating"
+  report, and `report.created` (plus a 5-second poll while anything is generating) moves
+  the UI on. A model call can take tens of seconds, which is too long to hold a request
+  open behind a proxy. A partial unique index allows only one generating report per
+  project, and on startup any report still "generating" is marked failed ("Interrupted by
+  a server restart").
+- **A claim is dropped if any id it cites is ineligible**, not just trimmed down to its
+  eligible ids. A sentence that is partly supported by unverified evidence isn't a
+  verified claim. Empty sentences are dropped too. If nothing survives, the report fails
+  with a clear message instead of being published empty.
+- **Compliance guard.** Sentences that assert legal, regulatory or statutory compliance
+  ("complies with", "compliant", "statutory", "legally") are dropped from claims and from
+  the uncited summary, on top of the prompt telling the model not to write them. The
+  brief's rule is "never claim legal compliance", and a prompt alone can't guarantee
+  that.
+- **The model sees only facts built from eligible evidence.** Ineligible ids never
+  appear in the prompt, so validation is a second line of defence, not the only one.
+  Large projects are capped at 150 listed assets and 20 ids per group; before/after
+  photos are always listed.
+- **"Tag clusters" are the top 12 tags** with their asset ids. Tags are already
+  normalised lower-case keywords, so this is enough for the model to group work by theme
+  without a separate clustering step.
+- **Report model call.** Gemini's docs now lead with the Interactions API, but
+  `models.generateContent` is still in `@google/genai` 2.24 with no deprecation notice,
+  and it accepts `systemInstruction` and `responseJsonSchema`. It's used here, as for
+  vision in Phase 2, and the output is validated with zod before citations are checked.
+- **Evidence references (E1, E2…)** follow the order of first citation and are the same
+  in the reader, the PDF and the CSV, so a funder can cross-check them.
+- **The annex lists cited files only**, with their current checks and full review
+  history. A file that stopped counting as verified after the report was generated is
+  marked as such rather than hidden.
+- **PDF:** `@react-pdf/renderer`'s `renderToBuffer` on the server, with the built-in
+  Helvetica and Times fonts, so nothing is downloaded at render time. Thumbnails are
+  fetched as explicit 480×360 JPEG stills (react-pdf embeds only JPEG and PNG, and
+  `f_auto` could serve WebP), six at a time with a 10-second timeout each; a missing
+  image becomes a placeholder rather than failing the PDF. Hyphenation is off.
+- **CSV:** `csv-stringify` with a UTF-8 BOM so Excel opens it correctly. Free-text cells
+  that start with `= + - @` get a leading `'`, so a caption or note can't run as a
+  spreadsheet formula.
+- **Share tokens** are 24 random bytes (32 URL-safe characters) stored as-is, so admins
+  can copy a link again later. Revoking deletes the row. Expired links return 410 and
+  unknown ones 404, so the page can tell people which it is. Every non-GET request under
+  `/api/share/:token` returns 405; the token is never a session.
+- **The public view shows only report-eligible evidence and ready reports**, without
+  uploader names. Reviewer names and notes stay in the annex, because accountable review
+  is part of the evidence. It includes "% of all uploads verified automatically", so
+  funders see how much evidence needed review or was left out, not only the best of it.
+  Responses are `no-store`, and pages and API responses carry `X-Robots-Tag: noindex`.
+- **Referrer-Policy is `strict-origin-when-cross-origin`** instead of helmet's
+  `no-referrer`. OpenStreetMap blocks tile requests that carry no Referer, and this policy
+  sends other sites only our origin, never a path, so share tokens don't leak.
+- **Report toasts go to everyone, including the author**, because the author may have
+  moved on while the report was being written.
+- **Playwright runs 3 workers locally** (`E2E_WORKERS` overrides; CI uses Playwright's
+  default) and waits up to 10 s per assertion. Every worker is a full Chromium, and on a
+  16 GB laptop that also runs Docker, six of them starved memory and slowed every test.
+  Uploads verify and reports render on a real server pipeline, so 10 s also leaves room
+  for the Phase 7 runs against a deployed `BASE_URL`.

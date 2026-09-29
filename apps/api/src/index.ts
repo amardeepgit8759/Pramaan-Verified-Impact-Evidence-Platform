@@ -5,6 +5,7 @@ import { EnvError, loadEnv } from './env.js';
 import { createLogger } from './logger.js';
 import { GeminiAiClient } from './services/ai.js';
 import { refreshAllGaps } from './services/gaps.js';
+import { failInterruptedReports } from './services/reports.js';
 import { LiveHub } from './services/live.js';
 import { CloudinaryMediaStore } from './services/media.js';
 
@@ -26,6 +27,10 @@ const { db, pool } = createDb(env.DATABASE_URL);
 
 await runMigrations(db);
 logger.info('Database migrations are up to date');
+
+const interrupted = await failInterruptedReports(db);
+if (interrupted > 0)
+  logger.warn({ interrupted }, 'Marked reports interrupted by a restart as failed');
 
 const media = new CloudinaryMediaStore(env, logger);
 const ai = new GeminiAiClient(env);

@@ -9,6 +9,10 @@ import {
   healthResponseSchema,
   projectListResponse,
   projectSummarySchema,
+  reportDetailSchema,
+  reportListResponse,
+  shareLinkListResponse,
+  sharedProjectSchema,
   publicStatsSchema,
   sessionResponse,
   settingsResponse,
@@ -38,6 +42,12 @@ export const queryKeys = {
   searchSuggestions: ['search', 'suggestions'] as const,
   compare: (siteId: string, picks: { before?: string; after?: string }) =>
     ['projects', 'compare', siteId, picks] as const,
+  reports: (projectId: string) => ['projects', projectId, 'reports'] as const,
+  report: (id: string) => ['reports', id] as const,
+  shareLinks: (projectId: string) => ['projects', projectId, 'share-links'] as const,
+  /** The public funder view: no session, keyed by the link's token. */
+  shared: (token: string) => ['share', token] as const,
+  sharedReport: (token: string, reportId: string) => ['share', token, 'reports', reportId] as const,
   settings: ['settings'] as const,
   team: ['team'] as const,
 };
@@ -165,4 +175,47 @@ export const compareQuery = (siteId: string, picks: { before?: string; after?: s
         signal,
       });
     },
+  });
+
+/** While a report is generating, poll as a fallback to the report.created live event. */
+const whileGenerating = (generating: boolean) => (generating ? 5_000 : false);
+
+export const reportsQuery = (projectId: string) =>
+  queryOptions({
+    queryKey: queryKeys.reports(projectId),
+    queryFn: async ({ signal }) =>
+      (await api.get(`/projects/${projectId}/reports`, reportListResponse, { signal })).reports,
+    refetchInterval: (query) =>
+      whileGenerating(Boolean(query.state.data?.some((r) => r.status === 'generating'))),
+  });
+
+export const reportQuery = (id: string) =>
+  queryOptions({
+    queryKey: queryKeys.report(id),
+    queryFn: ({ signal }) => api.get(`/reports/${id}`, reportDetailSchema, { signal }),
+    refetchInterval: (query) => whileGenerating(query.state.data?.status === 'generating'),
+  });
+
+export const shareLinksQuery = (projectId: string) =>
+  queryOptions({
+    queryKey: queryKeys.shareLinks(projectId),
+    queryFn: async ({ signal }) =>
+      (await api.get(`/projects/${projectId}/share-links`, shareLinkListResponse, { signal }))
+        .links,
+  });
+
+export const sharedProjectQuery = (token: string) =>
+  queryOptions({
+    queryKey: queryKeys.shared(token),
+    queryFn: ({ signal }) => api.get(`/share/${token}`, sharedProjectSchema, { signal }),
+    // Expired and revoked links are answers, not failures to retry.
+    retry: false,
+  });
+
+export const sharedReportQuery = (token: string, reportId: string) =>
+  queryOptions({
+    queryKey: queryKeys.sharedReport(token, reportId),
+    queryFn: ({ signal }) =>
+      api.get(`/share/${token}/reports/${reportId}`, reportDetailSchema, { signal }),
+    retry: false,
   });

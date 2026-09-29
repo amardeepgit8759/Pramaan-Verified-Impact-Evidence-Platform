@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "reports_one_generating_idx" ON "reports" USING btree ("project_id") WHERE "reports"."status" = 'generating';

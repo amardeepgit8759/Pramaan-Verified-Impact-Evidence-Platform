@@ -29,6 +29,13 @@
       "when": 1790584550996,
       "tag": "0003_site_gap_state",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790588510866,
+      "tag": "0004_report_generation_lock",
+      "breakpoints": true
     }
   ]
 }

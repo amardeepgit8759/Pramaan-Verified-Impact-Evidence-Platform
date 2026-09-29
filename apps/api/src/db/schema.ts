@@ -249,7 +249,13 @@ export const reports = pgTable(
     generatedBy: uuid('generated_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: createdAt(),
   },
-  (t) => [index('reports_project_id_idx').on(t.projectId, t.createdAt)],
+  (t) => [
+    index('reports_project_id_idx').on(t.projectId, t.createdAt),
+    // One report generating per project at a time, even under concurrent requests.
+    uniqueIndex('reports_one_generating_idx')
+      .on(t.projectId)
+      .where(sql`${t.status} = 'generating'`),
+  ],
 );
 
 export const reportClaims = pgTable(

@@ -19,9 +19,19 @@ const baseURL = deployed ?? `http://localhost:${port}`;
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
+  // Each worker is a Chromium instance; more than a few starve a laptop that is also running
+  // Docker, and then every test slows down together. CI keeps Playwright's default.
+  workers: process.env.E2E_WORKERS
+    ? Number(process.env.E2E_WORKERS)
+    : process.env.CI
+      ? undefined
+      : 3,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',
+  // Uploads verify, reports render and pages load against one shared server (or a remote
+  // deployment), all while other workers do the same.
+  expect: { timeout: 10_000 },
   use: { baseURL, trace: 'retain-on-failure' },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: deployed

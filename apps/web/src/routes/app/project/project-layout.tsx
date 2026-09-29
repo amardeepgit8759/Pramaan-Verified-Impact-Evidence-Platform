@@ -32,7 +32,9 @@ const TABS = [
   { to: 'timeline', label: 'Timeline', end: false },
   { to: 'compare', label: 'Compare', end: false },
   { to: 'review', label: 'Review', end: false },
+  { to: 'reports', label: 'Reports', end: false },
   { to: 'sites', label: 'Sites', end: false },
+  { to: 'share', label: 'Share', end: false, adminOnly: true },
 ];
 
 export interface ProjectContext {
@@ -129,7 +131,7 @@ export function ProjectLayout() {
         className="-mx-4 overflow-x-auto border-b px-4 sm:mx-0 sm:px-0"
       >
         <ul className="flex gap-1">
-          {TABS.map((tab) => (
+          {TABS.filter((tab) => isAdmin || !tab.adminOnly).map((tab) => (
             <li key={tab.label}>
               <NavLink
                 to={tab.to}

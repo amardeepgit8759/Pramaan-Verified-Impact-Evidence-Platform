@@ -39,7 +39,9 @@ export function describeEvent({ type, payload }: DescribableEvent): string {
       return `${actor ?? 'An admin'} ${verb} an asset${inProject}`;
     }
     case 'report.created':
-      return `New report generated${inProject}`;
+      return payload.status === 'failed'
+        ? `A report couldn’t be generated${inProject}`
+        : `New report generated${inProject}`;
     case 'settings.updated': {
       const changed = typeof payload.bandChanged === 'number' ? payload.bandChanged : 0;
       return changed > 0

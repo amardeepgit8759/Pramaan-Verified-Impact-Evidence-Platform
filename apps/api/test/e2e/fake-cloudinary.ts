@@ -181,6 +181,12 @@ export class FakeCloudinary implements MediaStore {
     return this.resources.get(publicId)?.secureUrl ?? '';
   }
 
+  /** The uploaded file itself, when it's a JPEG (all the e2e fixtures are). */
+  async fetchStill(publicId: string) {
+    const file = this.files.get(publicId);
+    return file && file[0] === 0xff && file[1] === 0xd8 ? file : null;
+  }
+
   async destroy(publicId: string) {
     this.resources.delete(publicId);
     this.files.delete(publicId);

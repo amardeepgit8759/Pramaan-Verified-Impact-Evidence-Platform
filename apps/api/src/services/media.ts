@@ -58,6 +58,11 @@ export interface MediaStore {
   previewUrl(publicId: string, resourceType: ResourceType): string;
   /** A labelled side-by-side before/after image of two photos, built by the CDN. */
   compositeUrl(before: CompositePart, after: CompositePart): string;
+  /**
+   * A small 4:3 JPEG of the asset (a video's automatically chosen frame) for embedding in
+   * PDFs, or null if it can't be fetched. Never throws.
+   */
+  fetchStill(publicId: string, resourceType: ResourceType): Promise<Buffer | null>;
   destroy(publicId: string, resourceType: ResourceType): Promise<void>;
 }
 
@@ -66,6 +71,9 @@ const THUMB_WIDTH = 480;
 
 /** Formats a field phone or camera produces; anything else is refused at upload. */
 const ALLOWED_FORMATS = 'jpg,jpeg,png,webp,heic,heif,avif,mp4,mov,webm,3gp';
+
+/** A PDF waits at most this long for each embedded photo. */
+const STILL_TIMEOUT_MS = 10_000;
 
 /** After the tagging add-on fails, skip it for a while instead of failing every upload. */
 const TAGGING_RETRY_MS = 60 * 60_000;
@@ -280,6 +288,31 @@ export class CloudinaryMediaStore implements MediaStore {
         { quality: 'auto' },
       ],
     });
+  }
+
+  async fetchStill(publicId: string, resourceType: ResourceType) {
+    // An explicit JPEG: the PDF renderer only embeds JPEG and PNG, and f_auto could pick WebP.
+    const url = cloudinary.url(publicId, {
+      resource_type: resourceType,
+      secure: true,
+      format: 'jpg',
+      transformation: [
+        ...(resourceType === 'video' ? [{ start_offset: 'auto' }] : []),
+        { width: 480, height: 360, crop: 'fill', gravity: 'auto' },
+        { quality: 'auto' },
+      ],
+    });
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(STILL_TIMEOUT_MS) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return Buffer.from(await res.arrayBuffer());
+    } catch (err) {
+      this.logger.warn(
+        { publicId, reason: errorMessage(err) },
+        'Could not fetch a still for a PDF',
+      );
+      return null;
+    }
   }
 
   async destroy(publicId: string, resourceType: ResourceType) {

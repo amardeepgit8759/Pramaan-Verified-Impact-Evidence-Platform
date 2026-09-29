@@ -4,7 +4,13 @@
  * Gemini calls on it, then deletes it. Needs real keys in the root .env.
  */
 import { randomUUID } from 'node:crypto';
-import { EMBEDDING_DIMENSIONS, extractCaptureData, phashFromHex } from '@pramaan/shared';
+import {
+  buildReportFacts,
+  EMBEDDING_DIMENSIONS,
+  extractCaptureData,
+  phashFromHex,
+  validateReportDraft,
+} from '@pramaan/shared';
 import { afterAll, describe, expect, it } from 'vitest';
 import { loadEnv } from '../../src/env.js';
 import { createLogger } from '../../src/logger.js';
@@ -115,5 +121,37 @@ describe('Gemini (live)', () => {
     const query = await ai.embed('drinking water borewell');
     const ranked = Object.entries(docs).sort(([, a], [, b]) => cosine(query, b) - cosine(query, a));
     expect(ranked[0]![0]).toBe('pump');
+  });
+
+  it('writes a report whose claims cite the given evidence', async () => {
+    const photo = (id: string, day: string, caption: string) => ({
+      id,
+      siteName: 'Village Rampur',
+      resourceType: 'image' as const,
+      capturedAt: new Date(`${day}T09:00:00Z`),
+      uploadedAt: new Date(`${day}T12:00:00Z`),
+      caption,
+      tags: ['water pump', 'village'],
+      trustScore: 100,
+      approvedByAdmin: false,
+    });
+    const ids: string[] = [randomUUID(), randomUUID()];
+    const facts = buildReportFacts({
+      project: {
+        name: 'Borewell Project',
+        description: 'A hand pump for Village Rampur',
+        sdgGoals: [6],
+        csrCategory: 'Drinking water',
+      },
+      period: { start: '2024-01-01', end: '2024-12-31' },
+      assets: [
+        photo(ids[0]!, '2024-02-01', 'A dry field before any work began'),
+        photo(ids[1]!, '2024-06-01', 'Women collecting water from a new hand pump'),
+      ],
+    });
+    const draft = await ai.generateReport(facts);
+    const { claims } = validateReportDraft(draft, new Set(ids));
+    expect(claims.length).toBeGreaterThan(0);
+    expect(claims.flatMap((c) => c.assetIds).every((id) => ids.includes(id))).toBe(true);
   });
 });

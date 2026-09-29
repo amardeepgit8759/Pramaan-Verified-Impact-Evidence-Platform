@@ -30,6 +30,11 @@ describe('describeEvent', () => {
     ],
     ['asset.reviewed', { decision: 'reject' }, 'An admin rejected an asset'],
     ['report.created', P, 'New report generated in Borewell Project – Phase 1'],
+    [
+      'report.created',
+      { ...P, status: 'failed' },
+      'A report couldn’t be generated in Borewell Project – Phase 1',
+    ],
     ['settings.updated', { bandChanged: 3 }, 'Trust settings changed; 3 assets changed band'],
     ['settings.updated', { bandChanged: 0 }, 'Trust settings changed'],
     ['settings.updated', {}, 'Trust settings changed'],

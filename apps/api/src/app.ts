@@ -18,6 +18,8 @@ import { searchRouter } from './routes/search.js';
 import { settingsRouter } from './routes/settings.js';
 import { projectSitesRouter, sitesRouter } from './routes/sites.js';
 import { projectsRouter } from './routes/projects.js';
+import { projectReportsRouter, reportsRouter } from './routes/reports.js';
+import { projectShareLinksRouter, sharedRouter, shareLinksRouter } from './routes/share.js';
 import { publicRouter } from './routes/public.js';
 import { usersRouter } from './routes/users.js';
 import { liveRouter } from './routes/live.js';
@@ -39,6 +41,7 @@ export interface AppDeps {
 
 export function createApp({ env, db, logger, media, ai, live }: AppDeps) {
   const ingest = { db, env, media, ai, logger };
+  const reportDeps = { db, ai, media, logger, live };
   const app = express();
   app.disable('x-powered-by');
   // Render (and most PaaS) terminate TLS at one proxy hop; needed for correct client IPs.
@@ -46,6 +49,9 @@ export function createApp({ env, db, logger, media, ai, live }: AppDeps) {
 
   app.use(
     helmet({
+      // OpenStreetMap refuses tile requests without a Referer, so send just our origin to
+      // other sites: never the path, which holds share-link tokens.
+      referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
       contentSecurityPolicy: {
         directives: {
           'img-src': [
@@ -108,13 +114,18 @@ export function createApp({ env, db, logger, media, ai, live }: AppDeps) {
   api.use(authenticate(db, env));
   api.use('/health', healthRouter(db));
   api.use('/public', publicRouter(db));
+  api.use('/share/:token', sharedRouter({ db, media }));
   api.use('/auth', authRouter(db, env));
   api.use('/users', usersRouter(db));
   api.use('/projects/:projectId/sites', projectSitesRouter(db));
   api.use('/projects/:projectId/assets', projectAssetsRouter(ingest));
   api.use('/uploads', uploadsRouter(ingest));
   api.use('/assets', assetsRouter(ingest));
+  api.use('/projects/:projectId/reports', projectReportsRouter(reportDeps));
+  api.use('/projects/:projectId/share-links', projectShareLinksRouter(db));
   api.use('/projects', projectsRouter(db));
+  api.use('/reports', reportsRouter(reportDeps));
+  api.use('/share-links', shareLinksRouter(db));
   api.use('/sites', sitesRouter(db, media));
   api.use('/search', searchRouter({ db, ai, media, logger }));
   api.use('/settings', settingsRouter(db));
@@ -146,6 +157,8 @@ function serveWebApp(app: express.Express, distDir: string, logger: Logger) {
   app.use((req, res, next) => {
     if (req.method !== 'GET' || req.path.startsWith('/api')) return next();
     res.setHeader('Cache-Control', 'no-cache');
+    // Funder share pages are private links: keep them out of search engines.
+    if (req.path.startsWith('/share/')) res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     res.sendFile(indexHtml);
   });
 }

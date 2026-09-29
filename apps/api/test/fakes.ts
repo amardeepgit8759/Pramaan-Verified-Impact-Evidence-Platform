@@ -2,7 +2,7 @@
  * Test doubles for the service boundaries (Cloudinary and Gemini). They live only in
  * tests; production code always uses the real clients.
  */
-import type { ResourceType } from '@pramaan/shared';
+import type { ReportDraft, ReportFacts, ResourceType } from '@pramaan/shared';
 import { EMBEDDING_DIMENSIONS } from '@pramaan/shared';
 import type { AiClient, VisionResult } from '../src/services/ai.js';
 import {
@@ -10,6 +10,7 @@ import {
   type CloudinaryResource,
   type MediaStore,
 } from '../src/services/media.js';
+import { makeJpegWithExif } from './sample-image.js';
 
 export class FakeMediaStore implements MediaStore {
   resources = new Map<string, CloudinaryResource>();
@@ -75,6 +76,20 @@ export class FakeMediaStore implements MediaStore {
     return `https://res.cloudinary.com/test/image/upload/composite/${before.publicId}|${after.publicId}|${before.date}|${after.date}`;
   }
 
+  /** Stills served to the PDF renderer; set to null to simulate Cloudinary being unreachable. */
+  still: Buffer | null = makeJpegWithExif({
+    lat: 28.47,
+    lng: 77.03,
+    capturedAt: '2024:03:10 09:00:00',
+    size: 64,
+  });
+  stillRequests: string[] = [];
+
+  async fetchStill(publicId: string) {
+    this.stillRequests.push(publicId);
+    return this.still;
+  }
+
   async destroy(publicId: string) {
     this.resources.delete(publicId);
   }
@@ -85,6 +100,18 @@ export class FakeAiClient implements AiClient {
   embedError: Error | null = null;
   describedUrls: string[] = [];
   embeddedTexts: string[] = [];
+  /** The report the "model" writes: a fixed draft, an error, or (by default) one built from the facts. */
+  report: ReportDraft | Error | ((facts: ReportFacts) => ReportDraft) = draftFromFacts;
+  /** When set, report generation waits for it, so tests can see the "generating" state. */
+  reportGate: Promise<void> | null = null;
+  reportFacts: ReportFacts[] = [];
+
+  async generateReport(facts: ReportFacts) {
+    this.reportFacts.push(facts);
+    if (this.reportGate) await this.reportGate;
+    if (this.report instanceof Error) throw this.report;
+    return typeof this.report === 'function' ? this.report(facts) : this.report;
+  }
 
   async describeImage(imageUrl: string) {
     this.describedUrls.push(imageUrl);
@@ -106,4 +133,40 @@ export class FakeAiClient implements AiClient {
     const norm = Math.hypot(...v) || 1;
     return v.map((x) => x / norm);
   }
+}
+
+/**
+ * A plausible report built only from the facts, like the real model is told to write, plus
+ * one uncited sentence that validation must drop.
+ */
+export function draftFromFacts(facts: ReportFacts): ReportDraft {
+  return {
+    summary: `${facts.totals.evidence} verified evidence files document the work between ${facts.period.start} and ${facts.period.end}.`,
+    sections: [
+      {
+        heading: 'Evidence by site',
+        claims: facts.per_site.map((s) => ({
+          sentence: `${s.count} verified evidence files were captured at ${s.site}.`,
+          asset_ids: s.asset_ids,
+        })),
+      },
+      ...(facts.before_after.length > 0
+        ? [
+            {
+              heading: 'Progress over time',
+              claims: facts.before_after.map((p) => ({
+                sentence: `${p.site} was photographed on ${p.before.date} and again on ${p.after.date}.`,
+                asset_ids: [p.before.asset_id, p.after.asset_id],
+              })),
+            },
+          ]
+        : []),
+      {
+        heading: 'Outcomes',
+        claims: [
+          { sentence: 'Every household in the district now has clean water.', asset_ids: [] },
+        ],
+      },
+    ],
+  };
 }

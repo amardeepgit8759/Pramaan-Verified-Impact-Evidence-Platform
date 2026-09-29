@@ -31,6 +31,7 @@ export function keysFor(event: LiveEvent): QueryKey[] {
     case 'report.created':
       return [
         ...common,
+        ['reports'],
         payload.projectId ? queryKeys.project(payload.projectId) : queryKeys.projects,
       ];
     case 'settings.updated':
@@ -40,11 +41,19 @@ export function keysFor(event: LiveEvent): QueryKey[] {
   }
 }
 
-/** Events worth interrupting someone for, when someone else caused them. */
+/**
+ * Events worth interrupting someone for, when someone else caused them. Reports are the
+ * exception: they finish in the background, so whoever started one hears about it too.
+ */
 function toastFor(event: LiveEvent, myId: string | undefined) {
   const payload = eventPayloadSchema.parse(event.payload);
-  if (payload.actorId && payload.actorId === myId) return;
   const text = describeEvent(event);
+  if (event.type === 'report.created') {
+    if (event.payload.status === 'failed') toast.error(text);
+    else toast.success(text);
+    return;
+  }
+  if (payload.actorId && payload.actorId === myId) return;
   switch (event.type) {
     case 'asset.created':
       if (payload.band === 'flagged' || payload.band === 'review') toast.warning(text);
@@ -52,7 +61,6 @@ function toastFor(event: LiveEvent, myId: string | undefined) {
     case 'asset.rescored':
       if (payload.band === 'flagged' && payload.previousBand !== 'flagged') toast.warning(text);
       break;
-    case 'report.created':
     case 'settings.updated':
     case 'asset.reviewed':
       toast.info(text);
