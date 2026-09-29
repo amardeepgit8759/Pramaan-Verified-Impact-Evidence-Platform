@@ -33,7 +33,7 @@ if (interrupted > 0)
   logger.warn({ interrupted }, 'Marked reports interrupted by a restart as failed');
 
 const media = new CloudinaryMediaStore(env, logger);
-const ai = new GeminiAiClient(env);
+const ai = new GeminiAiClient(env, {}, logger);
 const live = new LiveHub(db, logger);
 await live.init();
 

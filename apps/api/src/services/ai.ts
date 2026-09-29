@@ -1,7 +1,8 @@
 import { EMBEDDING_DIMENSIONS, type ReportDraft, type ReportFacts } from '@pramaan/shared';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, type HttpOptions } from '@google/genai';
 import { z } from 'zod';
 import type { Env } from '../env.js';
+import type { Logger } from '../logger.js';
 
 export interface VisionResult {
   caption: string;
@@ -22,6 +23,24 @@ export interface AiClient {
    * untrusted: citations are checked by validateReportDraft before anything is stored.
    */
   generateReport(facts: ReportFacts): Promise<ReportDraft>;
+}
+
+/** Tries per model, counting the first. Then the fallback model, if one is configured. */
+export const RETRY_ATTEMPTS = 2;
+/** Captions and embeddings answer in seconds; this bounds a stuck attempt during an upload. */
+const ATTEMPT_TIMEOUT_MS = 30_000;
+/** Reports run in the background and write much more, so each attempt may take longer. */
+const REPORT_ATTEMPT_TIMEOUT_MS = 120_000;
+
+/**
+ * Worth trying another model: overloaded ("503: high demand"), rate-limited, server error
+ * or timed out. Not for bad requests or keys, which another model wouldn't fix.
+ */
+export function isCapacityError(err: unknown): boolean {
+  const status = (err as { status?: unknown } | null)?.status;
+  if (typeof status === 'number') return status === 408 || status === 429 || status >= 500;
+  const name = (err as { name?: unknown } | null)?.name;
+  return name === 'AbortError' || name === 'TimeoutError';
 }
 
 const MIN_TAGS = 5;
@@ -136,10 +155,52 @@ export class GeminiAiClient implements AiClient {
   constructor(
     private readonly env: Pick<
       Env,
-      'GEMINI_API_KEY' | 'GEMINI_VISION_MODEL' | 'GEMINI_EMBEDDING_MODEL' | 'GEMINI_REPORT_MODEL'
+      | 'GEMINI_API_KEY'
+      | 'GEMINI_VISION_MODEL'
+      | 'GEMINI_EMBEDDING_MODEL'
+      | 'GEMINI_REPORT_MODEL'
+      | 'GEMINI_VISION_FALLBACK_MODELS'
+      | 'GEMINI_REPORT_FALLBACK_MODELS'
     >,
+    /** Overrides for tests (e.g. a stub `fetch`, shorter delays). */
+    http: HttpOptions = {},
+    private readonly logger?: Pick<Logger, 'warn'>,
   ) {
-    this.ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+    this.ai = new GoogleGenAI({
+      apiKey: env.GEMINI_API_KEY,
+      httpOptions: {
+        // Gemini answers "503: high demand" and 429s at busy times; the SDK retries those
+        // (and 408/5xx) with jittered exponential backoff only when asked to.
+        retryOptions: { attempts: RETRY_ATTEMPTS, initialDelay: 2, maxDelay: 8 },
+        // Per attempt, so a stuck request can't hold an upload for minutes.
+        timeout: ATTEMPT_TIMEOUT_MS,
+        ...http,
+      },
+    });
+  }
+
+  /**
+   * Call the primary model; while a model is still over capacity after its retries, move
+   * on to the next fallback (each with its own retries). Every switch is logged.
+   */
+  private async withFallback<T>(
+    primary: string,
+    fallbacks: readonly string[],
+    call: (model: string) => Promise<T>,
+  ): Promise<T> {
+    const models = [primary, ...fallbacks.filter((m) => m !== primary)];
+    for (let i = 0; ; i++) {
+      try {
+        return await call(models[i]!);
+      } catch (err) {
+        const next = models[i + 1];
+        if (!next || !isCapacityError(err)) throw err;
+        this.logger?.warn(
+          { model: models[i], next, reason: (err as Error).message.slice(0, 200) },
+          'Gemini model over capacity; trying the next model',
+        );
+      }
+    }
   }
 
   async describeImage(imageUrl: string): Promise<VisionResult> {
@@ -148,17 +209,22 @@ export class GeminiAiClient implements AiClient {
     const mimeType = image.headers.get('content-type')?.split(';')[0] ?? 'image/jpeg';
     const data = Buffer.from(await image.arrayBuffer()).toString('base64');
 
-    const res = await this.ai.models.generateContent({
-      model: this.env.GEMINI_VISION_MODEL,
-      contents: [
-        { role: 'user', parts: [{ inlineData: { mimeType, data } }, { text: VISION_PROMPT }] },
-      ],
-      config: {
-        responseMimeType: 'application/json',
-        responseJsonSchema: visionJsonSchema,
-        temperature: 0.2,
-      },
-    });
+    const res = await this.withFallback(
+      this.env.GEMINI_VISION_MODEL,
+      this.env.GEMINI_VISION_FALLBACK_MODELS,
+      (model) =>
+        this.ai.models.generateContent({
+          model,
+          contents: [
+            { role: 'user', parts: [{ inlineData: { mimeType, data } }, { text: VISION_PROMPT }] },
+          ],
+          config: {
+            responseMimeType: 'application/json',
+            responseJsonSchema: visionJsonSchema,
+            temperature: 0.2,
+          },
+        }),
+    );
     const parsed = visionSchema.parse(JSON.parse(res.text ?? ''));
     return { caption: parsed.caption, tags: [...new Set(parsed.tags)].slice(0, MAX_TAGS) };
   }
@@ -179,18 +245,24 @@ export class GeminiAiClient implements AiClient {
   }
 
   async generateReport(facts: ReportFacts): Promise<ReportDraft> {
-    const res = await this.ai.models.generateContent({
-      model: this.env.GEMINI_REPORT_MODEL,
-      contents: [
-        { role: 'user', parts: [{ text: `Project facts (JSON):\n${JSON.stringify(facts)}` }] },
-      ],
-      config: {
-        systemInstruction: REPORT_INSTRUCTIONS,
-        responseMimeType: 'application/json',
-        responseJsonSchema: reportJsonSchema,
-        temperature: 0.2,
-      },
-    });
+    const res = await this.withFallback(
+      this.env.GEMINI_REPORT_MODEL,
+      this.env.GEMINI_REPORT_FALLBACK_MODELS,
+      (model) =>
+        this.ai.models.generateContent({
+          model,
+          contents: [
+            { role: 'user', parts: [{ text: `Project facts (JSON):\n${JSON.stringify(facts)}` }] },
+          ],
+          config: {
+            systemInstruction: REPORT_INSTRUCTIONS,
+            responseMimeType: 'application/json',
+            responseJsonSchema: reportJsonSchema,
+            temperature: 0.2,
+            httpOptions: { timeout: REPORT_ATTEMPT_TIMEOUT_MS },
+          },
+        }),
+    );
     return reportDraftSchema.parse(JSON.parse(res.text ?? ''));
   }
 }

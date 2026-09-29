@@ -32,6 +32,11 @@ services:
         value: gemini-3.8-flash
       - key: GEMINI_EMBEDDING_MODEL
         value: gemini-embedding-2
+      # Tried in order only when the model above is still over capacity after retries.
+      - key: GEMINI_VISION_FALLBACK_MODELS
+        value: gemini-3.5-flash-lite,gemini-2.5-flash
+      - key: GEMINI_REPORT_FALLBACK_MODELS
+        value: gemini-3.7-flash,gemini-2.5-flash
       - key: TAGGING_PROVIDER
         value: cloudinary
       - key: LOG_LEVEL

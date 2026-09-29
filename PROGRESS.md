@@ -598,3 +598,19 @@ Still to do once the credentials arrive:
   in which a test double stands in for Gemini, so the views chosen avoid showing captions.
 - Deploy, then walk the deployed URL end to end (phone upload, live laptop dashboard, the
   planted duplicate, review, a cited report, the PDF and the share link).
+
+### Live verification with real credentials (2026-09-29)
+
+- `pnpm test:live` passes 9/9 against real Cloudinary and Gemini:
+  - signed upload;
+  - etag, pHash and EXIF read back;
+  - auto-tagging (or a clean "unavailable");
+  - delivery URLs;
+  - the labelled before/after composite rendered by Cloudinary;
+  - context write-back;
+  - Gemini captions, embeddings and ranking by meaning;
+  - a cited report.
+- Gemini was overloaded (503) during the first runs, so calls now retry and fall back to
+  other models (see DECISIONS). In the passing run, captioning fell back to
+  `gemini-3.5-flash-lite` and the report to `gemini-2.5-flash`, each logged. Five new unit
+  tests cover retries, fallbacks and which errors count as capacity problems.

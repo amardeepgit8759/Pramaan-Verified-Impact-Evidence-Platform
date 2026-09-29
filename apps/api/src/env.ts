@@ -6,6 +6,17 @@ const required = (hint: string) =>
     .trim()
     .min(1, `is required (${hint})`);
 
+/** "a, b" → ["a", "b"]; empty or unset → []. */
+const modelList = z
+  .string()
+  .optional()
+  .transform((v) =>
+    (v ?? '')
+      .split(',')
+      .map((m) => m.trim())
+      .filter(Boolean),
+  );
+
 const optional = z
   .string()
   .trim()
@@ -43,6 +54,12 @@ export const envSchema = z.object({
   GEMINI_VISION_MODEL: required('Gemini model id for captioning/tagging'),
   GEMINI_REPORT_MODEL: required('Gemini model id for report generation'),
   GEMINI_EMBEDDING_MODEL: required('Gemini model id for text embeddings'),
+  /**
+   * Comma-separated models to try, in order, when the vision or report model is still
+   * over capacity after its retries.
+   */
+  GEMINI_VISION_FALLBACK_MODELS: modelList,
+  GEMINI_REPORT_FALLBACK_MODELS: modelList,
 
   TAGGING_PROVIDER: z.enum(['cloudinary', 'gemini']).default('cloudinary'),
 

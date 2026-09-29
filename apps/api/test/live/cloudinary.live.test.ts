@@ -20,7 +20,7 @@ import { makeJpegWithExif } from '../sample-image.js';
 
 const env = loadEnv({ ...process.env, LOG_LEVEL: 'warn', NODE_ENV: 'test' });
 const media = new CloudinaryMediaStore(env, createLogger(env));
-const ai = new GeminiAiClient(env);
+const ai = new GeminiAiClient(env, {}, createLogger(env));
 const folder = `pramaan-test/${randomUUID()}`;
 const uploaded: string[] = [];
 

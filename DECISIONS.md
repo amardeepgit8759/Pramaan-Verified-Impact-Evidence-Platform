@@ -469,3 +469,18 @@ structured-output, image and embedding docs, on 2026-09-27/28.
   migrations run on start.
 - **`render.yaml` targets Singapore**, the Render region closest to NGOs in India. Secrets
   are marked `sync: false` so Render asks for them, and `JWT_SECRET` is generated.
+
+## Live Gemini behaviour (2026-09-29)
+
+- **Gemini calls retry, then fall back to other models.** The first live run hit "503: this
+  model is currently experiencing high demand" on both the vision and report models. The
+  SDK's backoff is now switched on (2 attempts per model, jittered, 2 s then up to 8 s;
+  30 s per attempt, 120 s for reports). If a model is still over capacity (408, 429, 5xx
+  or a timeout), the next model in `GEMINI_VISION_FALLBACK_MODELS` or
+  `GEMINI_REPORT_FALLBACK_MODELS` is tried, and each switch is logged. Errors another
+  model wouldn't fix, such as a bad request or key, fail straight away.
+- **Fallback choices** come from the models this key can use (listed through the API) and
+  from which of them answered during the outage: vision falls back to
+  `gemini-3.5-flash-lite`, then `gemini-2.5-flash`; reports to `gemini-3.7-flash`, then
+  `gemini-2.5-flash`. The primaries stay as documented. The fallbacks are configuration,
+  so they can change without a deploy of new code.
