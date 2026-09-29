@@ -567,3 +567,34 @@ arrived; it's listed under the phase it belongs to.
   seed.
 - Still open from earlier phases: non-Latin text in PDFs, re-embedding on rename, and
   paging for the map and timeline.
+
+### Deliverables and definition-of-done checks (brief Sections 8 and 9)
+
+- **README for judges.** It covers:
+  - the problem and solution, with screenshots;
+  - two Mermaid diagrams (the architecture, and the upload-to-live-dashboard sequence),
+    both checked by rendering them;
+  - how Pramaan uses Cloudinary (signed uploads, re-fetch, etag, pHash, media metadata,
+    auto-tagging, context write-back, and the thumbnail, preview, composite and PDF
+    transformations);
+  - the Trust Score table, a three-command local setup, env vars, deploy steps and tests;
+  - credits for every library, with licences, and for every API and data source.
+- **`docs/demo-script.md`:** a timed 4-minute walkthrough of the Section 9 journey, with a
+  preparation checklist and fallbacks. Its UI labels were checked against the app.
+- **Fresh clone check.** Clone, add `.env`, `docker compose up --build` (as a separate
+  Compose project): the health check reports the database and pgvector, migrations ran,
+  pages are served gzipped, sign-up works, and the Playwright smoke spec passes against
+  the container. It found a real problem, now fixed: the Dockerfile didn't copy the new
+  `scripts` workspace package, so the frozen install would have failed on a fresh clone.
+- **No mock data in shipped code.** The web tests moved from `apps/web/src` to
+  `apps/web/test`, like the API's, and a decoy password hash was renamed.
+  `grep -rniE "mock|lorem|faker|dummy|fake" apps/web/src apps/api/src` now finds only the
+  landing-page promise that missing metadata is "never 'fake'".
+- **Git history:** one or more commits per phase, from the scaffold through Phase 7.
+
+Still to do once the credentials arrive:
+
+- Retake the screenshots with real Gemini captions. The current ones come from a local run
+  in which a test double stands in for Gemini, so the views chosen avoid showing captions.
+- Deploy, then walk the deployed URL end to end (phone upload, live laptop dashboard, the
+  planted duplicate, review, a cited report, the PDF and the share link).
