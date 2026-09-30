@@ -467,8 +467,18 @@ structured-output, image and embedding docs, on 2026-09-27/28.
   `verify-full` but prints a security warning, and Neon's certificates are publicly
   trusted. Use the direct (unpooled) connection string: the app keeps its own pool, and
   migrations run on start.
-- **`render.yaml` targets Singapore**, the Render region closest to NGOs in India. Secrets
-  are marked `sync: false` so Render asks for them, and `JWT_SECRET` is generated.
+- **The app upgrades `sslmode=require` to `verify-full` itself** (`withVerifiedTls` in the
+  database client). Neon's console string can't be edited in place, so asking people to
+  change it by hand was a step that could go wrong. The upgrade keeps today's full
+  certificate check, silences the warning, and survives pg 9, where `require` will stop
+  checking the certificate. Neon's `channel_binding=require` is left in the string and
+  ignored by `pg`: with the certificate verified, a man in the middle is already ruled out.
+- **`render.yaml` targets Virginia**, next to the Neon project, which was created in AWS
+  us-east-1. The plan was Singapore for NGOs in India, but the database and the app must
+  share a region: a page makes many queries, and each would cross the world, while the
+  browser pays the distance once per request. Render can't move a service after creation,
+  so this was set before the Blueprint was created. Secrets are marked `sync: false` so
+  Render asks for them, and `JWT_SECRET` is generated.
 
 ## Live Gemini behaviour (2026-09-29)
 

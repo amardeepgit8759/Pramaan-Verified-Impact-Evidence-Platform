@@ -2,9 +2,19 @@ import type { Metrics, ProjectSummary } from '@pramaan/shared';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { render } from '@testing-library/react';
 import { Toaster } from 'sonner';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { FakeEventSource } from '../setup';
 import { adminSession, mockApi, renderRoute } from '../utils';
+
+// The charts are lazy chunks, and loading Recharts can take over 10 s when every suite runs
+// at once. Load them up front, so these tests check what the dashboard shows, not how fast
+// a module imports.
+beforeAll(async () => {
+  await Promise.all([
+    import('@/components/charts/uploads-chart'),
+    import('@/components/charts/band-donut'),
+  ]);
+}, 60_000);
 
 const project: ProjectSummary = {
   id: '33333333-3333-4333-8333-333333333333',

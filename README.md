@@ -205,7 +205,7 @@ each one.
 
 | Variable                                                               | Required | Default                           | Purpose                                                                                                                             |
 | ---------------------------------------------------------------------- | -------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                                                         | yes      |                                   | Postgres with pgvector. In production, Neon's direct string with `?sslmode=verify-full`                                             |
+| `DATABASE_URL`                                                         | yes      |                                   | Postgres with pgvector. In production, Neon's direct (unpooled) string, pasted as shown                                             |
 | `JWT_SECRET`                                                           | yes      |                                   | 32+ random characters for signing session cookies: `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"` |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | yes      |                                   | Cloudinary Console → Settings → API Keys                                                                                            |
 | `GEMINI_API_KEY`                                                       | yes      |                                   | Google AI Studio                                                                                                                    |
@@ -227,13 +227,16 @@ each one.
 The whole app ships as one Docker image: the API serves the built web app from the same
 origin, so cookies and Server-Sent Events need no CORS.
 
-1. Create a Neon project (AWS Singapore, next to the Render service) and copy its **direct**
-   connection string, ending in `?sslmode=verify-full`. The first migration enables
-   `pgvector`.
+1. Create a Neon project and copy its **direct** connection string (Connection pooling
+   off), exactly as the console shows it. The app upgrades `sslmode=require` to
+   `verify-full`, and the first migration enables `pgvector`.
 2. In Render, choose **New → Blueprint** and select this repository.
-   [`render.yaml`](render.yaml) defines the service: Docker, Singapore, a health check on
+   [`render.yaml`](render.yaml) defines the service: Docker, a health check on
    `/api/health`, and auto-deploy on push. Render asks for `DATABASE_URL`, the Cloudinary
    keys and the Gemini key, and generates `JWT_SECRET`.
+   Its region (`virginia`) matches the demo's Neon database in AWS us-east-1. Set it to the
+   Render region nearest your Neon project before creating the service, because Render can't
+   move a service afterwards.
 3. Each deploy runs migrations on start. `/api/health` reports the database, pgvector and
    latency.
 
@@ -242,7 +245,7 @@ origin, so cookies and Server-Sent Events need no CORS.
 | Command                          | What runs                                                                                                                                                                                                                                                                                                                  |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pnpm lint` · `pnpm typecheck`   | ESLint and `tsc` across every package                                                                                                                                                                                                                                                                                      |
-| `pnpm test` (after `pnpm db:up`) | **Shared** (201 tests): Trust Score, EXIF parsing, haversine, Hamming distance, the report-claim validator, all at 100% coverage. **API** (132): integration tests against real Postgres + pgvector, with Cloudinary and Gemini replaced by test doubles at the service boundary. **Web** (53): component and route tests. |
+| `pnpm test` (after `pnpm db:up`) | **Shared** (201 tests): Trust Score, EXIF parsing, haversine, Hamming distance, the report-claim validator, all at 100% coverage. **API** (137): integration tests against real Postgres + pgvector, with Cloudinary and Gemini replaced by test doubles at the service boundary. **Web** (53): component and route tests. |
 | `pnpm build && pnpm e2e`         | Playwright journeys against the production build. Upload → flagged → review → approved; live dashboard updates from a second browser; search, compare and gaps; report → PDF/CSV → funder share link. A local stand-in for Cloudinary reads real EXIF and computes real perceptual hashes.                                 |
 | `BASE_URL=https://… pnpm e2e`    | The same journeys against a deployment, using real Cloudinary                                                                                                                                                                                                                                                              |
 | `pnpm test:live`                 | Opt-in: a real signed upload to Cloudinary (etag, pHash, EXIF, tagging, context, composite), and real Gemini captioning, embeddings and report writing                                                                                                                                                                     |

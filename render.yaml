@@ -6,13 +6,14 @@ services:
     name: pramaan
     runtime: docker
     plan: free
-    # Closest Render region to India; create the Neon project in AWS Singapore too.
-    region: singapore
+    # Same place as the Neon database (AWS us-east-1), so every query stays in-region.
+    # Render can't move a service later: match this to Neon's region before creating it.
+    region: virginia
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health
     autoDeployTrigger: commit
     envVars:
-      # Neon connection string (direct, not pooled), ending in ?sslmode=verify-full
+      # Neon's direct (not pooled) connection string, pasted as the console shows it
       - key: DATABASE_URL
         sync: false
       - key: JWT_SECRET

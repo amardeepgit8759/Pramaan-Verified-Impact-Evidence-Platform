@@ -654,3 +654,20 @@ Still to do once the credentials arrive:
   - Three web unit tests checked visibility of elements that fade in with Framer Motion
     before the final opacity was applied. They failed only when the suites ran in parallel.
     They now wait for it.
+
+### Deploy preparation: region and connection string (2026-09-30)
+
+- **Code pushed** to GitHub (`main`), after a full-history scan found no secrets. A local
+  pre-commit hook (in `.git/hooks`, not committed) now blocks `.env` files, real `.env`
+  values and key-shaped strings.
+- **Neon project created in AWS us-east-1**, so `render.yaml` now targets Render's
+  `virginia` region instead of Singapore, keeping the app and database together (see
+  DECISIONS). This had to land before the Blueprint was created, because Render can't
+  change a service's region.
+- **Neon's connection string can be pasted as shown.** The app upgrades `sslmode=require`
+  to `verify-full` itself, since the console string can't be edited. Five unit tests cover
+  it, including percent-encoded passwords and strings left alone.
+- **Flaky dashboard test fixed:** loading the lazy Recharts chunk sometimes took over the
+  10 s wait when every suite ran in parallel. The test now loads the chart modules first.
+- Gate: lint, typecheck, and tests all pass: shared 201, web 53 (three parallel runs in
+  a row), API 137.
