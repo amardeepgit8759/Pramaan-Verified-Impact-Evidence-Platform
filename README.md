@@ -8,6 +8,10 @@ sentence links back to the photos that prove it**.
 > We don't just organise evidence. We prove it's genuine, and every claim links back to a
 > photo.
 
+**Live:** [pramaan-gpnp.onrender.com](https://pramaan-gpnp.onrender.com) (Render's free plan
+sleeps when idle, so the first visit can take about a minute). Sign up to get your own
+organisation.
+
 ![The Pramaan dashboard: live totals, trust bands, the review queue and documentation gaps](docs/screenshots/dashboard.jpg)
 
 ## The problem

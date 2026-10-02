@@ -72,11 +72,12 @@ _Near-copy_: its Cloudinary perceptual hash differs by only a few of 64 bits.
 
 **1:55 · Review (25 s)**
 
-Go to **Phase 1 → Review**. The original tank photo is waiting, with the reason spelled out.
-Press **Approve** without a note to show that a note is required. Then type "Taken by our
-team at Rampur; Phase 2 reused it" and approve.
+Go to **Phase 1 → Review**. The overhead tank photo from Sohna is waiting, because Phase 2's
+resized copy made it suspicious too, and the reason is spelled out. Press **Approve** without
+a note to show that a note is required. Then type "Taken by our team at Sohna; Phase 2's
+photo is a resized copy" and approve.
 
-> "Approval makes it usable in reports, but the score stays 40 and the decision is on the
+> "Approval makes it usable in reports, but the score stays 60 and the decision is on the
 > record, in the app and in the PDF annex."
 
 **2:20 · A report that proves itself (45 s)**
@@ -87,8 +88,8 @@ _Writing…_, then turns **Ready** on its own.
 Open it and click a sentence, such as "Village Rampur was photographed… and again…". The
 side panel shows the before and after photos with their Trust Scores and every check.
 
-> "Gemini only sees verified evidence. Any sentence that doesn't cite it is removed; here
-> one was, and the report says so. It never claims legal compliance: it's aligned to the
+> "Gemini only sees verified evidence. Any sentence that doesn't cite it is removed, and
+> the report says how many were. It never claims legal compliance: it's aligned to the
 > SDG and CSR categories."
 
 Click **Download PDF** and scroll it briefly: the cover, the numbered statements with

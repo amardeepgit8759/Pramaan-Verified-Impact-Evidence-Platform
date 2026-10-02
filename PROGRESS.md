@@ -671,3 +671,23 @@ Still to do once the credentials arrive:
   10 s wait when every suite ran in parallel. The test now loads the chart modules first.
 - Gate: lint, typecheck, and tests all pass: shared 201, web 53 (three parallel runs in
   a row), API 137.
+
+### Deployed and seeded (2026-10-03)
+
+- **Live at https://pramaan-gpnp.onrender.com** (Render, Virginia; Neon, AWS us-east-1).
+  `/api/health` reports the database connected with pgvector at 3 ms latency.
+- **Cloudinary key rotated** after a screenshot exposed the old secret. The new pair is in a
+  different product environment, so `.env` and Render both use its cloud name, key and
+  secret; an authenticated Admin API ping passes.
+- **Demo seeded through the live API** (`SEED_BASE_URL=… pnpm seed:demo`, password from
+  `SEED_PASSWORD`, kept out of the repo). All 16 photos went through real Cloudinary and
+  Gemini with the planted results: exact copy flagged 0, resized copy 60 (both copies sent
+  to review), off-site photo 60, no-EXIF photo 85, the rest verified 100. The report was
+  ready with 5 cited statements.
+- **Read-only checks as the demo user:** metrics (16 files, 68.8% verified, 4 waiting),
+  each project's review queue, and the event stream through Render's proxy (served as
+  `text/event-stream`, uncompressed, first bytes in 1 ms). A fresh sign-in in Chromium
+  showed no stray notifications.
+- **Demo script corrected:** the Phase 1 review item is the Sohna overhead tank (sent to
+  review by its resized copy), not the Rampur tank, which the seed approves. The report line
+  no longer assumes a statement was removed.
